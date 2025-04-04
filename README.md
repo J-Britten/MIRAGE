@@ -7,7 +7,37 @@ concepts.
 
 ## [MIRAGE Application](./MIRAGE%20Unity/)
 
-Built with Unity URP (2022.3.49f1)
+Built with Unity URP (Version 2022.3.49f1)
+
+### Setup
+#### 1. Unity 
+1. Clone this repository
+2. Download and install [Unity](https://unity.com/download) version `2022.3.49f1`
+3. Open the `MIRAGE Unity` Project.
+4. Open the `Desktop` or `Desktop UI` scene.
+#### 2. Preparing Computational Models
+`MIRAGE` utilizes multiple computational models which need to be converted to the `ONNX` file format.
+##### Object Detection & Segmentation
+We use [YOLO11-seg](https://github.com/ultralytics/ultralytics) for Object Detection and segmentation. It can be converted to `ONNX` with this python code:
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("yolo11s-seg.pt")
+model.export(format="onnx")
+```
+For more detailed instructions, please refer to the [Official Documentation](https://docs.ultralytics.com/tasks/segment/)
+
+##### Depth Estimation
+
+We use [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) for metric depth estimation.
+
+In our paper, we used the `depth_anything_v2_vits_outdoor_dynamic` model, which can be found in [this repository](https://github.com/fabio-sim/Depth-Anything-ONNX/releases/tag/v2.0.0).
+
+##### Inpainting
+We use the 
+
+
 
 
 ## Demo Quickstart
