@@ -3,7 +3,7 @@
 #include "SegmentationCommon.hlsl"
 
 RWTexture2D<float4> Result;
-StructuredBuffer<int2> outputArray;
+StructuredBuffer<int2> outputArray; // Array of object IDs and class IDs, produced by YOLO. See the SegmentationRunner.cs script for details.
 StructuredBuffer<float> objectDepths;
 int width;
 int height;

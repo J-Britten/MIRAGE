@@ -5,19 +5,19 @@ visualization concepts in-vehicle. We implemented nine visualization concepts co
 enjoyed the experience while pointing out technical limitations and identifying use cases and additional parameters relevant to MR. We discuss these results in context with related work and give an outlook on implications for MR regarding ethics and interaction
 concepts.
 
-## [MIRAGE Application](./MIRAGE%20Unity/)
+## Authors
+Anonymized
 
-Built with Unity URP (Version 2022.3.49f1)
-
-### Setup
-#### 1. Unity 
+## Setup
+### 1. Unity 
 1. Clone this repository
 2. Download and install [Unity](https://unity.com/download) version `2022.3.49f1`
 3. Open the `MIRAGE Unity` Project.
-4. Open the `Desktop` or `Desktop UI` scene.
-#### 2. Preparing Computational Models
+
+### 2. Preparing Computational Models
 `MIRAGE` utilizes multiple computational models which need to be converted to the `ONNX` file format.
-##### Object Detection & Segmentation
+After acquiring a ONNX model, add it to the Unity project.
+#### Object Detection & Segmentation
 We use [YOLO11-seg](https://github.com/ultralytics/ultralytics) for Object Detection and segmentation. It can be converted to `ONNX` with this python code:
 
 ```python
@@ -28,48 +28,146 @@ model.export(format="onnx")
 ```
 For more detailed instructions, please refer to the [Official Documentation](https://docs.ultralytics.com/tasks/segment/)
 
-##### Depth Estimation
+#### Depth Estimation
 
 We use [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) for metric depth estimation.
+1. Download the `depth_anything_v2_vits_outdoor_dynamic` model from [this repository](https://github.com/fabio-sim/Depth-Anything-ONNX/releases/tag/v2.0.0).
 
-In our paper, we used the `depth_anything_v2_vits_outdoor_dynamic` model, which can be found in [this repository](https://github.com/fabio-sim/Depth-Anything-ONNX/releases/tag/v2.0.0).
+#### Inpainting
+We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Model to realize effects such as `Remove` or `Opacity`. We modified their ONNX export pipeline for better compatibility with our pipeline.
 
-##### Inpainting
-We use the 
+1. Clone the `MI-GAN` repository.
+2. Replace the `/scripts/create_onnx_pipeline.py` script with our script found in the `Models/MI-GAN/create_onnx_pipeline.py` directory.
+3. Follow the instructions given by the developers on how to export the model to ONNX.
 
+### 3. Setting up Input
+1. Either use a `video` or `Webcam`for input.
 
+## Preparing a Scene
+1. Open a `Pipeline` scene 
+    - `Desktop UI` uses the UI from our expert evaluation. Recommend for first use
+    - `Desktop` requires you to add effects by hand via the Unity Editor UI.
+    - `VR` allows you to use the UI while watching the video through VR. We used this scene in our study setup. It does require additional setup.
+2. Find the `CameraInput` game object. 
+    - If you are using a webcam for input, hit `Refresh Camera List` and select your webcam. Untick the `Use Debug Video Input` box
+    - If you are using a video, navigate to the `VideoPlayer` child object and add the video. We added additional video controls that can be used on runtime.
+3. Find the `Models` Game Object. For each of the models, add the respective `ONNX` file to the `Model Asset` field.
+4. Start the scene.
+5. Add effects to the scene using the `UI`
+    - If you are using a scene without `UI`, refer to the `Effects` section of this README
+6. Changes are saved on UI toggle.
 
-
-## Demo Quickstart
-0. To test in VR, open the `Scenes/Pipeline/VR` scene. To test in desktop mode, open the `Scene/Pipeline/Pipeline` scene as well as the `UI` scene (drag it into the hierarchy to load more than one scene at a time)
-1. Download the required onnx models from [here](https://cloudstore.uni-ulm.de/s/rdw3yx4EaLHRf2B) and add them to the Assets folder:
-    - `depth_anything_v2_vits_outdoor_dynamic`
-    - `migan 512 no clipping`
-    - `yolo11s-seg`(other yolo models work too but this is the best quality/performance trade-off)
-2. Also download the demo video `Morning4_720p.mp4` demo video
-3. In your scene, find the `Models` Object, then for each child assign the correct `model asset`
-4. Find the `Camera Input > VideoPlayer` GameObject and assign the demo video. Select "Use Debug Video Input" on the `Camera Input` object 
-5. Hit play
-
-__Note__: The VR scene was tested exclusively with the `Oculus Runtime`. The project settings are set accordingly and may require adjustments. They can be found in `Edit > Project Settings > XR Plug-In Development`
-
-## UI Controls
+### UI Controls
 - Keyboard: Mouse or Arrow Keys, Enter/Space, ESC
 - Gamepad (XBOX): Left Stick, A Button, B Button
 
-__Note__: When using the desktop scene, the debug UI is disabled by default and can be turned on/off via the editor by activating the game object.
+## Available Effects
+This section covers which effects are available and how to apply them to objects.
+Generally, all Post-Processing effects can be found in the in the `PostProcessing` directory.
 
-## Models
-The `.models` directory contains files needed for exporting models to ONNX if they have been modified by me
+When added to a scene with a `Pipeline` script, the post-processing effect is automatically registered. 
+The `Desktop` scene has all available post-processing effects added under the `PostProcessors` game object.
 
-### Lama
-Dependencies are not working and took a while to get working, this is why here is a modified manual as to how to export it to ONNX
-1. Follow the Jupiter Notebook file downloaded from [huggingface](https://huggingface.co/Carve/LaMa-ONNX) for cloning the repository, downloading big-lama and unzipping it (do it manually if unzip doesnt work)
-2. When installing dependencies begins, instead use the `lama-requirements.txt` file (used under Python 3.10)
-3. add the `lama_to_onnx.py` file to the `lama`directory and execute it.
-4. Done!
+Generally, each PostProcessor contains a `Class Settings` list which allows to add classes this effect should be applied to. `Class ID` corresponds to the ID of the object type in the `COCO8` dataset. Refer to the `Resources/Models/YOLO/coco_classes.txt` file.
 
-### MI-GAN
-ONNX Export script derived from https://github.com/Picsart-AI-Research/MI-GAN.
+The minimum & maximum range where the effect should be applied can be set.
+Depending on the effect, a `color` field may be available. For some effects, this represents an actual color, for others, the color is used to pass other values to a shader. More information below. 
 
-Follow the instructions on ONNX support but replace the `create_onnx_pipeline.py` file with the one found in this repo. The script disables various post- and preoprocessing effects.
+__IMPORTANT:__ The color Unity sets by default is (0,0,0,0), meaning fully transparent! This may cause the effect to be invisible. Adjust the value accordingly!
+
+If the `Class Settings` list is changed on runtime, the `Update Classes` button has to be pressed.
+### Augmented Reality
+
+| Effect | Description | Script(s) | Settings | Additional Info |
+| -------- | ------ | ------- | ------- | ------- |
+| Outline | Adds an outline to objects | PostProcessor, OutlineSegmentationShader | Class ID, Range, Color | - |
+| Icon | Adds an Icon to an Object | IconPostProcessor | Class ID, Range, Color, Location (e.g. Top Left, Bottom Right), Offset (in pixels) | - |
+| InfoText | Displays the object type and distance as text | ObjectInfoPostProcessor | Class ID, Range, Color, Location, Offset | - |
+| Bounding Box | BoundsPostProcessor | Adds a box around the object | Class ID, Range, Color | - |
+
+### Diminished Reality
+| Effect | Description | Script(s) | Settings | Additional Info |
+| -------- | ------ | ------- | ------- | ------- |
+| Remove | Removes objects from the scene | MIGANRunner | Class ID, Range | Settings are applied directly to the MI-GAN model |
+| Reduce Opacity | Makes an object transparent | ImagePostProcessor, OpacityMaskSegmentationShader | Class ID, Range, Opacity (Color.alpha) | Rquires Remove effect |
+| Only Outline | Removes the object only keeping an outline around it | - | Class ID, Range, Color | Remove + Outline effect |
+| Blur | Applies Gaussian Blur | GaussianBlurImagePostProcessor | Class ID, Range, Radius (Color.r), Sigma (Color.g) | Radius (0-30)\*, Sigma (0-16)\*
+| Reduce Scale \*\* | Makes an object smaller | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Scale, Location, Offset | Requires Remove effect. | 
+
+\* Assuming the editor color picker is set to RGBA 0-255
+
+\*\* This effect uses the TransformPostProcessor which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
+### Modified Reality
+| Effect | Description | Script(s) | Settings | Additional Info |
+| -------- | ------ | ------- | ------- | ------- |
+| Color Mask | Changes the color of an object | PostProcessor, ColoredMaskSegmentationShader | Class ID, Range, Color | - | 
+| Painted | Applies the Kuwahara effect to an object | ImagePostProcessor, KuwaharaSegmentationShader | Class ID, Range, Filter Radius (Color.r), Sectors (Color.g), Strength (Color.b) | Radius (1-5)\*, Sectors (4-16)\*, Strength ((0-1)\*255)\*|
+| Replace | Replaces an object with a 2D sprite | BoundsPostProcessor | Class ID, Color, Range, Location, Offset, Image Prefab | Requires Remove effect. The sprite is set via the Prefab | 
+| Scale\*\* | Increase the size of an object | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Scale | Can be combined with Remove effect |
+| Translate\*\* | Move an object | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Location, Offset | Can be combined with Remove effect |
+| Rotate\*\* | Rotates an object | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Rotation | Can be combined with Remove effect | 
+
+\* Assuming the editor color picker is set to RGBA 0-255
+
+\*\* This effect uses the TransformPostProcessor which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
+## Creating new Effects
+We utilize both C#-Scripts and Compute Shaders to realize post-processing effects (visualizations). We provide abstract classes and documentation for various use cases:
+
+We differentiate between CPU- and GPU-based effects.
+
+We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Settings on the shader side. It takes care of checking whether an object the effect could be applied to is valid or not
+
+### PostProcessor (GPU)
+- Script that executes a shader which adds something to the image.
+- Requires the segmentation mask 
+- See the `ColoredMaskSegmentationShader.compute` for a simple example
+
+### ImagePostProcessor (GPU)
+- Script that executes a shader which manipulates the input image using the segmentation output
+- Requires the segmentation mask and input image
+- Used by the `CopySegmentationShader.cs` and `GaussianBlurImagePostProcessor.cs`
+- See the `CopySegmentationShader.compute` shader for a simple example (Note: By default, the effect is applied back to the InputTexture instead of a different Output Texture)
+
+### CPUPostProcessor (CPU)
+- Abstract class that takes care of creating CPU-based effects that use Unity Prefabs to create an effect, e.g. display a bounding box
+- Takes care of updating classes, initialization, and the updating loop
+- Provides abstract methods that need to be implemented
+- See the `IconPostProcessor.cs` script for a basic implementation
+
+
+## Adding new models
+We use Unity Sentis to execute `ONNX` models in Unity. While we provide abstract `runner` classes to simplify adding new models, we recommend taking a look at the [documentation first](https://docs.unity3d.com/Packages/com.unity.sentis@2.1).
+
+Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipeline executes models.
+
+### Exporting to ONNX
+1. Find a model you would want to use and export it to `ONNX`. 
+    -   This process highly depends on the model and its implementation. 
+    -   Not all `ONNX` models are [compatible](https://docs.unity3d.com/Packages/com.unity.sentis@2.1/manual/supported-operators.html)
+    - Note: We won't assist in exporting models to ONNX. Please refer to the developers of the models.
+2. Add the model to Unity. If no errors are thrown, the model is most likely compatible.
+3. Write down the input and output tensors
+
+### Creating a ModelRunner script
+1. Inherit from `ModelRunner.cs` (or `InpaintingRunner`, `DepthEstimationRunner`, or `SegmentationRunner` if your model fulfills one of these tasks)
+2. Implement the abstract methods. 
+    - Look at the `YOLORunner`, `MIGANRunner`, or `DepthAnythingRunner` for inspiration
+3. Create a new scene, add the model and a `ModelExecutor` to it
+    - Alternatively duplicate a scene in `Scenes/Models/` and replace the model
+    - Take a look at these scenes for inspiration
+4. Set the parameters for your model
+5. Run the model
+
+6. Currently, models can't be dynamically added to the pipeline. If you aim to add an additional model to the pipeline (instead of replacing another), the `Pipeline.cs` script has to be modified by hand.
+
+## References
+
+- [Unity Sentis](https://docs.unity3d.com/Packages/com.unity.sentis@2.1)
+
+The UI was built using
+- [Unity UI Extensions](https://github.com/Unity-UI-Extensions/com.unity.uiextensions) 
+- [HSV Color Picker](https://github.com/judah4/HSV-Color-Picker-Unity)
+
+Graphics for (Replace Effect)
+- https://de.m.wikipedia.org/wiki/Datei:Person_icon_BLACK-01.svg
+- https://de.wikipedia.org/wiki/Datei:Car_pictogram.svg

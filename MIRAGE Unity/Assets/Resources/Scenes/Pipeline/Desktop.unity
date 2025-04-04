@@ -954,11 +954,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1935412686521121079, guid: 9f3ac5ef698223e42b614d76bb999408, type: 3}
       propertyPath: SelectedClasses.Array.data[0].ClassID
-      value: 9
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1935412686521121079, guid: 9f3ac5ef698223e42b614d76bb999408, type: 3}
       propertyPath: SelectedClasses.Array.data[0].MaxRange
-      value: 100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5214784420172681137, guid: 9f3ac5ef698223e42b614d76bb999408, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2296,7 +2296,7 @@ PrefabInstance:
     - target: {fileID: 4129777055793220159, guid: 6de893ea3635f8e4680a07187d4c363f, type: 3}
       propertyPath: Shader
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 7200000, guid: afa64c2da85faac4db16a6645b56782f, type: 3}
     - target: {fileID: 4129777055793220159, guid: 6de893ea3635f8e4680a07187d4c363f, type: 3}
       propertyPath: ClassSettings.Array.size
       value: 0
@@ -2357,6 +2357,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5988352215918958750, guid: 6de893ea3635f8e4680a07187d4c363f, type: 3}
+      propertyPath: ClassSettings.Array.size
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6457246506240514011, guid: 6de893ea3635f8e4680a07187d4c363f, type: 3}
       propertyPath: OutputContainer
       value: 
@@ -2388,6 +2392,10 @@ PrefabInstance:
     - target: {fileID: 6457246506240514011, guid: 6de893ea3635f8e4680a07187d4c363f, type: 3}
       propertyPath: classSettings.Array.data[0].MaxRange
       value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 8518757574956880851, guid: 6de893ea3635f8e4680a07187d4c363f, type: 3}
+      propertyPath: ClassSettings.Array.size
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8551106674375220518, guid: 6de893ea3635f8e4680a07187d4c363f, type: 3}
       propertyPath: boxPrefab
