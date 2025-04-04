@@ -1,0 +1,50 @@
+#pragma kernel VisualizeSegmentation
+
+// Input buffer containing instance IDs (now as int2)
+StructuredBuffer<int2> InstanceBuffer;
+
+// Output texture
+RWTexture2D<float4> OutputTexture;
+
+// Parameters
+uint TextureWidth;
+uint TextureHeight;
+bool ShowObjects; // true to use maskIndex, false to use labelID
+
+// Define 8 distinct colors
+static const float4 colors[8] = {
+    float4(1.0, 0.0, 0.0, 1.0),  // Red
+    float4(0.0, 1.0, 0.0, 1.0),  // Green
+    float4(0.0, 0.0, 1.0, 1.0),  // Blue
+    float4(1.0, 1.0, 0.0, 1.0),  // Yellow
+    float4(1.0, 0.0, 1.0, 1.0),  // Magenta
+    float4(0.0, 1.0, 1.0, 1.0),  // Cyan
+    float4(1.0, 0.5, 0.0, 1.0),  // Orange
+    float4(0.5, 0.0, 1.0, 1.0)   // Purple
+};
+
+[numthreads(8, 8, 1)]
+void VisualizeSegmentation(uint3 id : SV_DispatchThreadID)
+{
+    // Check if within texture dimensions
+    if (id.x >= TextureWidth || id.y >= TextureHeight)
+        return;
+
+    // Get instance ID from buffer
+    int2 instanceData = InstanceBuffer[id.y * TextureWidth + id.x];
+    int instanceID = ShowObjects ? instanceData.x : instanceData.y;
+
+    int flippedY = TextureHeight - 1 - id.y;
+    int2 coord = int2(id.x, flippedY);
+    // Set color based on instance ID
+    if (instanceID == -1)
+    {
+        OutputTexture[coord] = float4(0, 0, 0, 0); // Transparent for no instance
+    }
+    else
+    {
+        // Use absolute value to handle negative IDs and mod 8 to cycle through colors
+        uint colorIndex = uint(abs(instanceID)) % 8u;
+        OutputTexture[coord] = colors[colorIndex];
+    }
+} 

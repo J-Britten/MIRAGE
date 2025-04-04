@@ -1,0 +1,61 @@
+#pragma kernel CSMain
+
+#include "SegmentationCommon.hlsl"
+
+RWTexture2D<float4> Result;
+Texture2D<float4> InputTexture;
+StructuredBuffer<int2> outputArray;
+StructuredBuffer<float> objectDepths;  // Add depth buffer
+int width;  // output width
+int height; // output height
+uint inputWidth;  // Add input texture width
+uint inputHeight; // Add input texture height
+
+// You can adjust this value to control the opacity of masked areas
+static const float maskOpacity = 0.5;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= inputWidth || id.y >= inputHeight) return;
+
+    // Calculate scaling factors
+    float scaleX = (float)width / inputWidth;
+    float scaleY = (float)height / inputHeight;
+    
+    // Calculate the corresponding position in the output buffer
+    int outputX = (int)(id.x * scaleX);
+    int outputY = (int)(id.y * scaleY);
+    
+    // Get index in the output array
+    int outputIndex = outputY * width + outputX;
+    int2 c = outputArray[outputIndex];
+    int objectId = c.x;
+    int classIndex = c.y;
+
+    // Calculate coordinates for the input and result textures
+    int2 inputCoord = int2(id.x, inputHeight - 1 - id.y);
+    
+    // Get the input texture color
+    float4 inputColor = InputTexture[inputCoord];
+    
+    // Check if there's already a color at this position
+    float4 existingColor = Result[inputCoord];
+    if (existingColor.a > 0)
+    {
+        return; // Skip if pixel is already processed
+    }
+
+    float depth = objectDepths[objectId];
+    float4 effectColor = GetColorForClassAndDepth(classIndex, depth);        
+    if (effectColor.a > 0)
+    {
+        // Blend the input color with the effect color
+        Result[inputCoord] = float4(inputColor.rgb, effectColor.a);
+    }
+    else if(Result[inputCoord].a == 0) {
+            Result[inputCoord] = float4(0, 0, 0, 0);
+        
+    }
+
+} 

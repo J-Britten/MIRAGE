@@ -1,0 +1,71 @@
+#pragma kernel InstanceSegmentation
+//This shader looks assigns each pixel to the object with the highest mask confidence score and puts in the label ID
+// Input buffers
+StructuredBuffer<float> InputMasks;
+StructuredBuffer<float4> BoundingBoxes;
+StructuredBuffer<int> LabelIDs;
+
+// Output buffer
+// Each int2 contains the mask index and label ID
+// The mask index is used to identify individual objects, the label ID is used to identify the class of the object
+RWStructuredBuffer<int2> OutputBuffer;
+
+// Parameters
+uint MaskWidth;
+uint MaskHeight;
+uint NumMasks;
+float Scale;
+
+[numthreads(8, 8, 1)]
+void InstanceSegmentation(uint3 id : SV_DispatchThreadID)
+{
+    // Check if within texture dimensions
+    if (id.x >= MaskWidth || id.y >= MaskHeight)
+        return;
+
+
+    float highestMaskValue = 0.0;
+    int2 winningIDs = int2(-1, -1); // First value is objectID, second is labelID
+
+    // Flip the y-coordinate (we dont do this we do it later to be in line with the other shaders)
+    uint flippedY = id.y;// + (MaskHeight-InputWidth);//MaskHeight - 1 - id.y;
+
+    // Iterate through all masks for this pixel position
+    for (uint objectID = 0; objectID < NumMasks; objectID++)
+    {
+        // Get bounding box and scale to mask dimensions
+        float4 bbox = BoundingBoxes[objectID];
+       // float2 scale = float2(float(MaskWidth) / float(OutputWidth), 
+         //                   float(MaskHeight) / float(OutputHeight));
+        
+
+        float2 bboxCenter = float2(bbox.x, bbox.y) * Scale;
+        float2 bboxSize = float2(bbox.z, bbox.w) * Scale;
+        
+        // Calculate bbox bounds
+        float2 bboxMin = floor(bboxCenter - bboxSize * 0.5);
+        float2 bboxMax = ceil(bboxCenter + bboxSize * 0.5);
+
+        // Check if current pixel is within bounds
+        float2 pixelPos = float2(id.x, flippedY);
+        bool isInBounds = (pixelPos.x >= bboxMin.x && pixelPos.x < bboxMax.x &&
+                          pixelPos.y >= bboxMin.y && pixelPos.y < bboxMax.y);
+
+        if (isInBounds)
+        {
+            // Calculate index in the input masks buffer
+            uint inputIndex = objectID * (MaskWidth * MaskHeight) + flippedY * MaskWidth + id.x;
+            float maskValue = InputMasks[inputIndex];
+
+            // If this mask has a higher value 
+            if (maskValue > highestMaskValue)
+            {
+                highestMaskValue = maskValue;
+                winningIDs = int2(objectID, LabelIDs[objectID]);
+            }
+        }
+    }
+
+    // Write both the mask index and label ID to the output buffer
+    OutputBuffer[id.y * MaskWidth + id.x] = winningIDs;
+} 

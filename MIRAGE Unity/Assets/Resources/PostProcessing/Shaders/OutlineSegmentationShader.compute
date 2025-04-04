@@ -1,0 +1,103 @@
+#pragma kernel CSMain
+
+#include "SegmentationCommon.hlsl"
+
+RWTexture2D<float4> Result;
+StructuredBuffer<int2> outputArray;
+StructuredBuffer<float> objectDepths;
+int width;
+int height;
+bool flipY;
+
+// Check if any neighbor pixel belongs to a different class
+void IsEdgePixel(uint2 pos, out bool isEdge, out int edgeObject, out int edgeClass)
+{
+    int2 c = outputArray[pos.y * width + pos.x];
+    int centerObject = c.x;
+    edgeObject = centerObject;
+    edgeClass = c.y;
+    isEdge = false;
+    
+    if (!IsClassSelected(c.y))
+    {
+        edgeObject = -1;
+        return;
+    }
+    
+    
+    // Check a larger neighborhood (2 pixels radius)
+    for (int y = -2; y <= 2; y++)
+    {
+        for (int x = -2; x <= 2; x++)
+        {
+            // Skip the center 3x3 area for thicker outline
+            if (abs(x) <= 1 && abs(y) <= 1) continue;
+            
+            int2 neighborPos = int2(pos.x + x, pos.y + y);
+            
+            // Skip if outside texture bounds
+            if (neighborPos.x < 0 || neighborPos.x >= width || 
+                neighborPos.y < 0 || neighborPos.y >= height)
+                continue;
+            int2 nc = outputArray[neighborPos.y * width + neighborPos.x];
+            int neighborObject = nc.x;
+            
+            // If neighbor is different class or not selected, it's an edge
+            if (neighborObject != centerObject)
+            {
+                isEdge = true;
+                return;
+            }
+        }
+    }
+
+    // Check immediate neighbors for gap filling
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            if (x == 0 && y == 0) continue;
+            
+            int2 neighborPos = int2(pos.x + x, pos.y + y);
+            
+            if (neighborPos.x < 0 || neighborPos.x >= width || 
+                neighborPos.y < 0 || neighborPos.y >= height)
+                continue;
+            int2 nc = outputArray[neighborPos.y * width + neighborPos.x];
+            int neighborObject = nc.x;
+            
+            if (neighborObject != centerObject || !IsClassSelected(nc.y))
+            {
+                isEdge = true;
+                return;
+            }
+        }
+    }
+    
+    edgeObject = -1;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)width || id.y >= (uint)height) return;
+    int2 coord = int2(id.x, height - 1 - id.y);
+    
+    bool isEdge;
+    int edgeObject;
+    int edgeClass;
+    
+    IsEdgePixel(id.xy, isEdge, edgeObject, edgeClass);
+    
+    if (isEdge && edgeObject >= 0)
+    {
+        float depth = objectDepths[edgeObject];
+        float4 color = GetColorForClassAndDepth(edgeClass, depth);
+        Result[coord] = color;
+    }
+    /*
+    else
+    {
+        Result[coord] = float4(0, 0, 0, 0); // Transparent
+    }*/
+} 

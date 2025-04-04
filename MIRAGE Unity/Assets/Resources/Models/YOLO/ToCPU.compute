@@ -1,0 +1,26 @@
+#pragma kernel ToCPU
+// For whatever reason, Sentis cant handle passing these values to the CPU directly
+//presumably because they are way bigger than Nx1 or Nx4 for an also unknown reason
+//However, copying these values with a shader to a new buffer and turning that into an array does work fine
+
+RWStructuredBuffer<int> LabelIDsInput;
+RWStructuredBuffer<float> BBoxInput;
+RWStructuredBuffer<int> LabelIDsOutput;
+RWStructuredBuffer<float> BBoxOutput;
+int NumDetections;
+
+[numthreads(1,1,1)]
+void ToCPU (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x < NumDetections)
+    {
+        // Copy label ID
+        LabelIDsOutput[id.x] = LabelIDsInput[id.x];
+        
+        // Copy bounding box coordinates (4 values per detection)
+        BBoxOutput[id.x * 4] = BBoxInput[id.x * 4];     // x
+        BBoxOutput[id.x * 4 + 1] = BBoxInput[id.x * 4 + 1]; // y
+        BBoxOutput[id.x * 4 + 2] = BBoxInput[id.x * 4 + 2]; // width
+        BBoxOutput[id.x * 4 + 3] = BBoxInput[id.x * 4 + 3]; // height
+    }
+}

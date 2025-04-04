@@ -1,0 +1,128 @@
+#pragma kernel HorizontalBlur
+#pragma kernel VerticalBlur
+#pragma kernel CSMain
+
+#include "SegmentationCommon.hlsl"
+
+// This shader implements a Gaussian blur effect for segmentation masks.
+// It uses a Gaussian kernel to blur the colors based on the segmentation class and depth of each pixel.
+// We pass the radius and sigma values as color values r and g respectively in the effectColor variable.
+
+RWTexture2D<float4> Result;
+RWTexture2D<float4> TempResult;
+Texture2D<float4> InputTexture;
+StructuredBuffer<int2> outputArray;
+StructuredBuffer<float> objectDepths;
+int width;
+int height;
+uint inputWidth;
+uint inputHeight;
+
+// Compute Gaussian weights
+float GaussianWeight(int x, float sigma)
+{
+    float sigmaSq = sigma * sigma;
+    return exp(-(x * x) / (2.0 * sigmaSq)) / sqrt(2.0 * 3.14159 * sigmaSq);
+}
+
+[numthreads(8,8,1)]
+void HorizontalBlur(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= inputWidth || id.y >= inputHeight) return;
+
+    float scaleX = (float)width / inputWidth;
+    float scaleY = (float)height / inputHeight;
+    int outputX = (int)(id.x * scaleX);
+    int outputY = (int)(id.y * scaleY);
+    int outputIndex = outputY * width + outputX;
+    int2 c = outputArray[outputIndex];
+    int objectId = c.x;
+    int classIndex = c.y;
+    float depth = objectDepths[objectId];
+
+    int2 inputCoord = int2(id.x, inputHeight - 1 - id.y);
+    float4 color = float4(0, 0, 0, 0);
+    float weightSum = 0;
+
+    float4 effectColor = GetColorForClassAndDepth(classIndex, depth);
+    if (effectColor.r > 0)
+    {
+        // Make sure we get non-zero values
+        int radius = max(1, (int)(effectColor.r * 255));
+        float sigma = max(0.1, effectColor.g * 255.0);
+        
+        // Debug validation
+        radius = min(radius, 30); // Cap maximum radius
+        
+        for (int i = -radius; i <= radius; i++)
+        {
+            int2 sampleCoord = int2(clamp(inputCoord.x + i, 0, inputWidth - 1), inputCoord.y);
+            float weight = GaussianWeight(i, sigma);
+            color += InputTexture[sampleCoord] * weight;
+            weightSum += weight;
+        }
+        color /= weightSum;
+        TempResult[inputCoord] = color;
+    }
+    else
+    {
+        TempResult[inputCoord] = InputTexture[inputCoord];
+    }
+}
+
+[numthreads(8,8,1)]
+void VerticalBlur(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= inputWidth || id.y >= inputHeight) return;
+
+    float scaleX = (float)width / inputWidth;
+    float scaleY = (float)height / inputHeight;
+    int outputX = (int)(id.x * scaleX);
+    int outputY = (int)(id.y * scaleY);
+    int outputIndex = outputY * width + outputX;
+    int2 c = outputArray[outputIndex];
+    int objectId = c.x;
+    int classIndex = c.y;
+    float depth = objectDepths[objectId];
+
+    int2 inputCoord = int2(id.x, inputHeight - 1 - id.y);
+    float4 color = float4(0, 0, 0, 0);
+    float weightSum = 0;
+
+    float4 effectColor = GetColorForClassAndDepth(classIndex, depth);
+    if (effectColor.r > 0)
+    {
+        int radius = max(1, (int)(effectColor.r * 255.0));
+        float sigma = max(0.1, effectColor.g * 255.0);
+        
+        radius = min(radius, 30); // Cap maximum radius
+        
+        for (int i = -radius; i <= radius; i++)
+        {
+            int2 sampleCoord = int2(inputCoord.x, clamp(inputCoord.y + i, 0, inputHeight - 1));
+            float weight = GaussianWeight(i, sigma);
+            color += TempResult[sampleCoord] * weight;
+            weightSum += weight;
+        }
+        color /= weightSum;
+        Result[inputCoord] = color;
+    }
+    else if(Result[inputCoord].a == 0)
+    {   
+        Result[inputCoord] = float4(0,0,0,0);
+    }
+}
+
+[numthreads(8,8,1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= inputWidth || id.y >= inputHeight) return;
+    int2 inputCoord = int2(id.x, inputHeight - 1 - id.y);
+    
+    float4 existingColor = Result[inputCoord];
+    if (existingColor.a > 0)
+    {
+        return;
+    }
+    Result[inputCoord] = float4(0, 0, 0, 0);
+}

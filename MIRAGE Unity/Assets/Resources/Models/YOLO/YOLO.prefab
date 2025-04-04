@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4714989737480914748
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8978419194418124184}
+  - component: {fileID: 4472163729129746862}
+  m_Layer: 0
+  m_Name: YOLO
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8978419194418124184
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4714989737480914748}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1445.8126, y: 1146.775, z: 34.625546}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4472163729129746862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4714989737480914748}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1a23188c37db644390ae42432582157, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsEnabled: 1
+  ModelAsset: {fileID: 5022602860645237092, guid: ed4dfd953ef4203438d79003c16a54dd, type: 3}
+  layersPerFrame: 269
+  MaxObjects: 256
+  OutputImage: {fileID: 0}
+  ImageWidth: 1280
+  ImageHeight: 720
+  InputWidth: 640
+  InputHeight: 640
+  OutputWidth: 640
+  OutputHeight: 360
+  outputTexture: {fileID: 0}
+  TextAsset: {fileID: 4900000, guid: e8b09f471c23e3a48983f4382c3e0184, type: 3}
+  MaskScalingFactor: 4
+  ClipPadding: 1
+  YOLOClasses: 80
+  iouThreshold: 0.7
+  scoreThreshold: 0.25
+  maskThreshold: 0.25
+  InputTexture: {fileID: 0}
+  InputImage: {fileID: 0}

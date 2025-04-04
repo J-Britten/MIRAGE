@@ -1,0 +1,39 @@
+#pragma kernel CSMain
+// Shader that creats a color mask
+#include "SegmentationCommon.hlsl"
+
+RWTexture2D<float4> Result;
+StructuredBuffer<int2> outputArray;
+StructuredBuffer<float> objectDepths;
+int width;
+int height;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)width || id.y >= (uint)height) return;
+
+    int inputIndex = id.y * width + id.x;
+    int2 c = outputArray[inputIndex];
+    int objectId = c.x;
+    int classId = c.y;
+
+    int2 coord = int2(id.x, height - 1 - id.y);
+    
+    // Check if there's already a color at this position
+    float4 existingColor = Result[coord];
+    if (existingColor.a > 0)
+    {
+        return; // Skip if pixel is already colored
+    }
+    
+    if (IsClassSelected(classId))
+    {
+        float depth = objectDepths[objectId];
+        Result[coord] = GetColorForClassAndDepth(classId, depth);
+    }
+    /*else
+    {
+        Result[coord] = float4(0, 0, 0, 0); // Transparent for non-selected classes
+    }*/
+} 

@@ -1,0 +1,54 @@
+#pragma kernel CSMain
+
+#include "SegmentationCommon.hlsl"
+
+// Input and output textures
+RWTexture2D<float4> OutputTexture;  // New output texture
+Texture2D<float4> InputTexture;
+
+// Buffers for segmentation data
+StructuredBuffer<int2> outputArray;
+StructuredBuffer<float> objectDepths;
+
+// Dimensions
+int width;
+int height;
+uint inputWidth;
+uint inputHeight;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // Early exit if outside texture dimensions
+    if (id.x >= inputWidth || id.y >= inputHeight) return;
+
+    // Calculate scale factors
+    float scaleX = (float)width / inputWidth;
+    float scaleY = (float)height / inputHeight;
+    
+    // Calculate output coordinates
+    int outputX = (int)(id.x * scaleX);
+    int outputY = (int)(id.y * scaleY);
+    
+    // Get object ID and class information
+    int outputIndex = outputY * width + outputX;
+    int2 c = outputArray[outputIndex];
+    int objectId = c.x;
+    int classIndex = c.y;
+    float depth = objectDepths[objectId];
+
+    // Calculate input coordinates (accounting for Y flip as in original shader)
+    int2 inputCoord = int2(id.x, inputHeight - 1 - id.y);
+    
+    // Simple validity check - if classColor has red component > 0, the pixel is valid
+    if (IsClassSelected(classIndex, depth))
+    {
+        // Just copy the pixel from input to output
+        OutputTexture[inputCoord] = InputTexture[inputCoord];
+    }
+    else
+    {
+        // Make invalid pixels transparent
+        OutputTexture[inputCoord] = float4(0, 0, 0, 0);
+    }
+}

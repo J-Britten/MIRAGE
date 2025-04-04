@@ -1,0 +1,23 @@
+#pragma kernel CreateMask
+
+// Shader that creates a mask for inpainting based on YOLO object detection results
+
+RWStructuredBuffer<uint> ValidObjects;      // Input: Contains 1 for valid objects, 0 for invalid
+RWStructuredBuffer<int2> YOLOMaskBuffer;    // Input: x = object ID, y = class ID
+RWStructuredBuffer<float> MaskBuffer;        // Output: Final mask (1 for pixels to inpaint, 0 otherwise)
+
+uint NumMaskPositions;
+
+[numthreads(64,1,1)]
+void CreateMask(uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.x;
+    if (index >= NumMaskPositions)
+        return;
+    
+    int2 maskInfo = YOLOMaskBuffer[index];
+    int objectId = maskInfo.x;
+    
+    // Set mask value to 0 if objectId is -1, otherwise use ValidObjects value
+    MaskBuffer[index] = (objectId == -1) ? 0 : ValidObjects[objectId];
+} 

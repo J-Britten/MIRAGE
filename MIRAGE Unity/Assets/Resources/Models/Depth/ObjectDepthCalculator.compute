@@ -1,0 +1,118 @@
+#pragma kernel ObjectDepth
+
+// Input buffers
+StructuredBuffer<int2> SegmentationBuffer; // Object ID and class
+StructuredBuffer<float> DepthBuffer;       // Depth values in meters
+
+// Output buffer
+RWStructuredBuffer<float> ObjectDepthBuffer; //avg depth per object,
+
+// Image dimensions
+uint ImageWidth;
+uint ImageHeight;
+uint MaxObjectID;
+
+// Add FOV parameter
+float FOVRadians;
+
+float FocalLengthScale = 1.0f;
+
+// Atomic counter for each object (to calculate average)
+// We use uint2 instead of float2 because InterlockedAdd only works with integers
+// x: minimum depth (as fixed-point integer), y: unused (kept for structure compatibility)
+// x: total depth (as fixed-point integer), y: count of pixels
+groupshared uint2 objectSums[256];    
+
+float CalculateDistanceCorrection(uint2 id) {
+    // Convert pixel coordinates to normalized device coordinates (-1 to 1)
+    float2 normalizedPos = float2(id.x / float(ImageWidth), id.y / float(ImageHeight)) * 2.0 - 1.0;
+    
+    // Calculate distance from center in normalized space
+    float distanceFromCenter = length(normalizedPos);
+    
+    // Calculate the angle using normalized coordinates
+    float angleFromCenter = atan(distanceFromCenter * tan(FOVRadians * 0.5f));
+    
+    // Correct for perspective projection
+    return 1.0f / cos(angleFromCenter);
+}
+
+[numthreads(8,8,1)]
+void ObjectDepth (uint3 id : SV_DispatchThreadID, uint3 groupId : SV_GroupID, uint3 localId : SV_GroupThreadID)
+{
+    const uint threadCount = 64; // 8x8 threads
+    uint threadIdx = localId.y * 8 + localId.x;
+
+    // Each thread initializes exactly 4 elements (256/64 = 4)
+    objectSums[threadIdx] = uint2(0xFFFFFFFF, 0);
+    objectSums[threadIdx + threadCount] = uint2(0xFFFFFFFF, 0);
+    objectSums[threadIdx + (threadCount * 2)] = uint2(0xFFFFFFFF, 0);
+    objectSums[threadIdx + (threadCount * 3)] = uint2(0xFFFFFFFF, 0);
+    /*objectSums[threadIdx] = uint2(0, 0);
+    objectSums[threadIdx + threadCount] = uint2(0, 0);
+    objectSums[threadIdx + (threadCount * 2)] = uint2(0, 0);
+    objectSums[threadIdx + (threadCount * 3)] = uint2(0, 0);*/
+    GroupMemoryBarrierWithGroupSync();
+
+    // Calculate total number of pixels
+    uint totalPixels = ImageWidth * ImageHeight;
+    
+    // Each thread processes multiple pixels
+    uint pixelsPerThread = (totalPixels + 63) / 64; // Round up division
+    uint startPixel = threadIdx * pixelsPerThread;
+    uint endPixel = min(startPixel + pixelsPerThread, totalPixels);
+
+    // Process assigned pixels
+    for (uint i = startPixel; i < endPixel; i++)
+    {
+        int2 segmentation = SegmentationBuffer[i];
+        
+        // Calculate 2D coordinates from linear index
+        uint x = i % ImageWidth;
+        uint y = i / ImageWidth;
+        // Flip y coordinate for depth buffer
+        uint flippedIndex = x + ( /*ImageHeight - 1 -*/ y) * ImageWidth;
+        
+        float depth = DepthBuffer[flippedIndex];
+        // Apply depth correction based on distance from center
+        float correction = CalculateDistanceCorrection(int2(x, y));
+        depth *= FocalLengthScale;
+        depth *= correction;
+        
+        int objectId = segmentation.x;
+        
+        if (objectId >= 0 && objectId < MaxObjectID)
+        {
+            uint fixedPointDepth = uint(depth * 1000.0);
+            // Use InterlockedMin instead of InterlockedAdd to track minimum value
+            InterlockedMin(objectSums[objectId].x, fixedPointDepth);
+            // Use InterlockedAdd to accumulate total depth
+            //InterlockedAdd(objectSums[objectId].x, fixedPointDepth);
+            // Increment the count of pixels for this object
+            InterlockedAdd(objectSums[objectId].y, 1);
+        }
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
+
+    // Have one thread per group write results
+    if (localId.x == 0 && localId.y == 0)
+    {
+        for (uint objId = 0; objId < MaxObjectID; objId++)
+        {
+            // Check if we have any depth value (non-zero means we found at least one pixel)
+            if (objectSums[objId].x > 0)
+            //if (objectSums[objId].y > 0)
+            {
+                // Convert back from fixed-point to floating point
+                // Only divide by 1000.0 to convert back to meters (no averaging needed)
+                float minDepth = float(objectSums[objId].x) / 1000.0;
+                ObjectDepthBuffer[objId] = minDepth;
+
+                // Calculate average depth
+              //  float avgDepth = float(objectSums[objId].x) / float(objectSums[objId].y) / 1000.0;
+               // ObjectDepthBuffer[objId] = avgDepth;
+            }
+        }
+    }
+} 
