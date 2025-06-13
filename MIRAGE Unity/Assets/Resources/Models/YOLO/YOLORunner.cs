@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
-using Unity.Sentis;
+using Unity.InferenceEngine;
 using Unity.VisualScripting;
 using UnityEditor.EditorTools;
 using UnityEditor.Experimental.GraphView;
@@ -73,13 +73,13 @@ public class YOLOSegmentationRunner : SegmentationRunner
     public RawImage InputImage; //Image to display the input texture
 
     //Input Tensor
-    private Tensor<float> inputTensor;
+    private Unity.InferenceEngine.Tensor<float> inputTensor;
 
     //Output Tensors
-    private Tensor<int> labelIDTensor; // N, 1 (label IDs)
-    private Tensor<float> scoresTensor; // N, 1 (scores)
-    private Tensor<float> maskTensor; // N, 160, 160, 1 (masks)
-    private Tensor<float> bboxTensor; // N, 4 (coords are centerX, centerY, width, height)
+    private Unity.InferenceEngine.Tensor<int> labelIDTensor; // N, 1 (label IDs)
+    private Unity.InferenceEngine.Tensor<float> scoresTensor; // N, 1 (scores)
+    private Unity.InferenceEngine.Tensor<float> maskTensor; // N, 160, 160, 1 (masks)
+    private Unity.InferenceEngine.Tensor<float> bboxTensor; // N, 4 (coords are centerX, centerY, width, height)
 
 
     public override int NumObjDetected => numDetections;
@@ -101,7 +101,7 @@ public class YOLOSegmentationRunner : SegmentationRunner
     
 
     //Pre Processing Variables
-    private TextureTransform inputTextureTransform;
+    private Unity.InferenceEngine.TextureTransform inputTextureTransform;
 
     /// <summary>
     /// This shader takes the masks tensor in form of a buffer as input
@@ -141,7 +141,7 @@ public class YOLOSegmentationRunner : SegmentationRunner
 
     public override IEnumerator RunModel(params Texture[] inputs) {
         InputImage.texture = inputs[0];
-        inputTensor = TextureConverter.ToTensor(inputs[0], inputTextureTransform);
+        inputTensor = Unity.InferenceEngine.TextureConverter.ToTensor(inputs[0], inputTextureTransform);
         schedule = worker.ScheduleIterable(inputTensor);
 
         yield return RunInference();
@@ -156,10 +156,10 @@ public class YOLOSegmentationRunner : SegmentationRunner
 
     protected override void PeekOutput() {
 
-        labelIDTensor = worker.PeekOutput("output_0") as Tensor<int>; // N, 1 (label IDs)
-        scoresTensor = worker.PeekOutput("output_1") as Tensor<float>; // N, 1 (scores)
-        bboxTensor = worker.PeekOutput("output_2") as Tensor<float>; // N, 4 (coords are centerX, centerY, width, height)
-        maskTensor = worker.PeekOutput("output_3") as Tensor<float>;  // N , 160, 160 ,1      (160,160) by default, adjusted to output width and height for this
+        labelIDTensor = worker.PeekOutput("output_0") as Unity.InferenceEngine.Tensor<int>; // N, 1 (label IDs)
+        scoresTensor = worker.PeekOutput("output_1") as Unity.InferenceEngine.Tensor<float>; // N, 1 (scores)
+        bboxTensor = worker.PeekOutput("output_2") as Unity.InferenceEngine.Tensor<float>; // N, 4 (coords are centerX, centerY, width, height)
+        maskTensor = worker.PeekOutput("output_3") as Unity.InferenceEngine.Tensor<float>;  // N , 160, 160 ,1      (160,160) by default, adjusted to output width and height for this
 
         numDetections = Math.Min(labelIDTensor.shape[0], MaxObjects);
         labelIDTensor.ReadbackRequest();
@@ -195,13 +195,13 @@ public class YOLOSegmentationRunner : SegmentationRunner
         //.SetDimensions(InputWidth, InputHeight,3)
         .SetDimensions(scaledWidth, scaledHeight,3)
         .SetChannelSwizzle(ChannelSwizzle.RGBA)
-        .SetTensorLayout(TensorLayout.NCHW);
+        .SetTensorLayout(Unity.InferenceEngine.TensorLayout.NCHW);
         var internalMaskWidth = InputWidth / MaskScalingFactor;
         var internalMaskHeight = InputHeight / MaskScalingFactor;
         var pad_h_scaled = Mathf.RoundToInt(pad_h / MaskScalingFactor);
         var pad_w_scaled = Mathf.RoundToInt(pad_w / MaskScalingFactor);
 
-        var ctoC = Functional.Constant(new TensorShape(4,4),new float[] //center to corners matrix
+        var ctoC = Unity.InferenceEngine.Functional.Constant(new Unity.InferenceEngine.TensorShape(4,4),new float[] //center to corners matrix
         {
                     1,      0,      1,      0,
                     0,      1,      0,      1,
@@ -209,76 +209,76 @@ public class YOLOSegmentationRunner : SegmentationRunner
                     0,      -0.5f,  0,      0.5f
         });
 
-        var model = ModelLoader.Load(ModelAsset); //Load YOLO model
-        var graph = new FunctionalGraph();
+        var model = Unity.InferenceEngine.ModelLoader.Load(ModelAsset); //Load YOLO model
+        var graph = new Unity.InferenceEngine.FunctionalGraph();
         //var input = graph.AddInput(model, 0); //get input tensor from original model
-        var input = graph.AddInput(DataType.Float, new DynamicTensorShape(1,3,-1,-1));
+        var input = graph.AddInput(Unity.InferenceEngine.DataType.Float, new Unity.InferenceEngine.DynamicTensorShape(1,3,-1,-1));
 
-        input = input.Pad(padding, paddingValue);
+        input = Unity.InferenceEngine.Functional.Pad(input, padding, paddingValue);
 
         //no preprocessing needed
-        var outputs = Functional.Forward(model, input);
+        var outputs = Unity.InferenceEngine.Functional.Forward(model, input);
 
         var boxes_scores = outputs[0]; //shape (1, 116, 8400) by default, the number is changing depending on the number of classes the yolo model has
 
         var classUpper = 4 + YOLOClasses; //upper bounds for tensor creation below, by default YOLO has 80 classes, so it would be 84
         var boxCoords = boxes_scores[0, 0..4, ..];  //The first 4 elements are the box coordinates, shape (4, 8400)
-        boxCoords = Functional.Transpose(boxCoords, 0,1); //Transpose to shape (8400, 4)
+        boxCoords = Unity.InferenceEngine.Functional.Transpose(boxCoords, 0,1); //Transpose to shape (8400, 4)
         var allScores = boxes_scores[0, 4..classUpper, ..]; //The next 80 elements are the class scores, shape ( 80, 8400)
-        var scores = Functional.ReduceMax(allScores, 0); //Reduce to shape (8400)
-        var classIDs = Functional.ArgMax(allScores, 0); //Reduce to shape (8400)
+        var scores = Unity.InferenceEngine.Functional.ReduceMax(allScores, 0); //Reduce to shape (8400)
+        var classIDs = Unity.InferenceEngine.Functional.ArgMax(allScores, 0); //Reduce to shape (8400)
 
-        var boxCorners = Functional.MatMul(boxCoords, ctoC); //Transform the box coordinates to corners
+        var boxCorners = Unity.InferenceEngine.Functional.MatMul(boxCoords, ctoC); //Transform the box coordinates to corners
         
-        var indices = Functional.NMS(boxCorners, scores, iouThreshold, scoreThreshold); //iou threshold, score threshold //shape = N (the amount of objects that meet the threshold criteria)
-        var indices_unsqueezed = Functional.Unsqueeze(indices, -1); // N
-        var indices_2 = Functional.BroadcastTo(indices_unsqueezed, new int[] {4}); // N, 4
-        var coords = Functional.Gather(boxCoords, 0, indices_2); //N, 4
+        var indices = Unity.InferenceEngine.Functional.NMS(boxCorners, scores, iouThreshold, scoreThreshold); //iou threshold, score threshold //shape = N (the amount of objects that meet the threshold criteria)
+        var indices_unsqueezed = Unity.InferenceEngine.Functional.Unsqueeze(indices, -1); // N
+        var indices_2 = Unity.InferenceEngine.Functional.BroadcastTo(indices_unsqueezed, new int[] {4}); // N, 4
+        var coords = Unity.InferenceEngine.Functional.Gather(boxCoords, 0, indices_2); //N, 4
 
-        var labelIDs = Functional.Gather(classIDs, 0, indices); //N, ids for labels
-        var usedScores = Functional.Gather(scores, 0, indices); //N, all relevant scores
+        var labelIDs = Unity.InferenceEngine.Functional.Gather(classIDs, 0, indices); //N, ids for labels
+        var usedScores = Unity.InferenceEngine.Functional.Gather(scores, 0, indices); //N, all relevant scores
 
         var mask_coefs = boxes_scores[0, classUpper.., ..]; //shape (1, 32, 8400)
-        mask_coefs = Functional.Transpose(mask_coefs, 0,1); //shape (8400, 32)
+        mask_coefs = Unity.InferenceEngine.Functional.Transpose(mask_coefs, 0,1); //shape (8400, 32)
 
-        var indices_3 = Functional.BroadcastTo(indices_unsqueezed, new int[] {32}); // N, 32
-        mask_coefs = Functional.Gather(mask_coefs, 0, indices_3); //shape (N, 32)
+        var indices_3 = Unity.InferenceEngine.Functional.BroadcastTo(indices_unsqueezed, new int[] {32}); // N, 32
+        mask_coefs = Unity.InferenceEngine.Functional.Gather(mask_coefs, 0, indices_3); //shape (N, 32)
        // mask_coefs = Functional.Gather(mask_coefs, 1, indices); //shape (1, 32, N)
 
         var maskPrototypes = outputs[1]; //shape (1, 32, 160, 160) //consider turning this into shape N, 32, 160, 160 then apply multiplication accordingly
 
-        var coefs = Functional.Reshape(mask_coefs, new int[] {-1, 32,1,1}); //reshape coefficients to match match prototype for multiplication, -1 = N
-        var masks = Functional.Mul(coefs, maskPrototypes); //for each result, multiply the coefficients with the prototype on their respective mask layer
+        var coefs = Unity.InferenceEngine.Functional.Reshape(mask_coefs, new int[] {-1, 32,1,1}); //reshape coefficients to match match prototype for multiplication, -1 = N
+        var masks = Unity.InferenceEngine.Functional.Mul(coefs, maskPrototypes); //for each result, multiply the coefficients with the prototype on their respective mask layer
         
-        masks = Functional.ReduceSum(masks,1);    //shape (N, 160, 160)
+        masks = Unity.InferenceEngine.Functional.ReduceSum(masks,1);    //shape (N, 160, 160)
 
         //The following section takes care of upscaling the masks to the original image size
-        FunctionalTensor upscalingTensor = Functional.Constant(0.0f); //Create a tensor of zeros
-        upscalingTensor = Functional.BroadcastTo(upscalingTensor, new int[] {1,internalMaskHeight,internalMaskWidth}); //Give it the same shape as a mask
+        Unity.InferenceEngine.FunctionalTensor upscalingTensor = Unity.InferenceEngine.Functional.Constant(0.0f); //Create a tensor of zeros
+        upscalingTensor = Unity.InferenceEngine.Functional.BroadcastTo(upscalingTensor, new int[] {1,internalMaskHeight,internalMaskWidth}); //Give it the same shape as a mask
         
         //Concatenate the upscaling tensor with the masks
         //we need to do this because sentis interpolation cant work/handle Length(dimX)==0 tensors. These can occur if yolo doesnt detect any object in a frame
         //By concatenating a tensor of zeros, we can avoid this issue and ensure each dimenson is at least of length 1
-        upscalingTensor = Functional.Concat(new FunctionalTensor[] {upscalingTensor, masks}, 0); 
+        upscalingTensor = Unity.InferenceEngine.Functional.Concat(new Unity.InferenceEngine.FunctionalTensor[] {upscalingTensor, masks}, 0); 
 
-        upscalingTensor = Functional.Reshape(upscalingTensor, new int[] {-1,1,internalMaskHeight,internalMaskWidth}); //Reshape concatenated to NCHW shape. Interpolating only works with this shape
+        upscalingTensor = Unity.InferenceEngine.Functional.Reshape(upscalingTensor, new int[] {-1,1,internalMaskHeight,internalMaskWidth}); //Reshape concatenated to NCHW shape. Interpolating only works with this shape
 
         if(ClipPadding) {
             upscalingTensor = upscalingTensor[..,..,0..(internalMaskHeight-pad_h_scaled), 0..(internalMaskWidth-pad_w_scaled)]; //clip padding, must match the padding array specified above
         }
 
-        upscalingTensor = Functional.Interpolate(upscalingTensor, new int[] {OutputHeight,OutputWidth}, mode: "linear"); //upscale (linear is bilinear)
+        upscalingTensor = Unity.InferenceEngine.Functional.Interpolate(upscalingTensor, new int[] {OutputHeight,OutputWidth}, mode: "linear"); //upscale (linear is bilinear)
         
         
         masks = upscalingTensor[1..]; //Remove the added zero tensor
         //https://github.com/ultralytics/ultralytics/issues/17672
         // Add sigmoid activation to normalize values between 0 and 1
-        masks = Functional.Sigmoid(masks);
+        masks = Unity.InferenceEngine.Functional.Sigmoid(masks);
         
-        masks = Functional.Where( //remove noise from the mask
-            Functional.Greater(masks, Functional.Constant( maskThreshold )),
+        masks = Unity.InferenceEngine.Functional.Where( //remove noise from the mask
+            Unity.InferenceEngine.Functional.Greater(masks, Unity.InferenceEngine.Functional.Constant( maskThreshold )),
             masks,
-            Functional.Constant(0.0f )
+            Unity.InferenceEngine.Functional.Constant(0.0f )
         );
 
 
@@ -289,7 +289,7 @@ public class YOLOSegmentationRunner : SegmentationRunner
 
 
 
-        var newOutputs = new FunctionalTensor[] {labelIDs, usedScores, coords, masks};
+        var newOutputs = new Unity.InferenceEngine.FunctionalTensor[] {labelIDs, usedScores, coords, masks};
 
         runtimeModel = graph.Compile(newOutputs);
 
@@ -332,9 +332,9 @@ public class YOLOSegmentationRunner : SegmentationRunner
     private void CreateInstanceSegmentationMask()
     {
         
-        instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "InputMasks", ComputeTensorData.Pin(maskTensor).buffer);
-        instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "BoundingBoxes", ComputeTensorData.Pin(bboxTensor).buffer);
-        instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "LabelIDs", ComputeTensorData.Pin(labelIDTensor).buffer);
+        instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "InputMasks", Unity.InferenceEngine.ComputeTensorData.Pin(maskTensor).buffer);
+        instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "BoundingBoxes", Unity.InferenceEngine.ComputeTensorData.Pin(bboxTensor).buffer);
+        instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "LabelIDs", Unity.InferenceEngine.ComputeTensorData.Pin(labelIDTensor).buffer);
       //  instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "Scores", ComputeTensorData.Pin(scoresTensor).buffer);
         instanceSegmentationShader.SetBuffer(instanceSegmentationKernel, "OutputBuffer", OutputBuffer);
         instanceSegmentationShader.SetInt("NumMasks", numDetections);
@@ -375,8 +375,8 @@ public class YOLOSegmentationRunner : SegmentationRunner
        // bboxOutputBuffer = new ComputeBuffer(numDetections * 4, sizeof(float));
 
         // Set shader parameters
-        toCPUShader.SetBuffer(extractLabelIDsKernel, "LabelIDsInput", ComputeTensorData.Pin(labelIDTensor).buffer);
-        toCPUShader.SetBuffer(extractLabelIDsKernel, "BBoxInput", ComputeTensorData.Pin(bboxTensor).buffer);
+        toCPUShader.SetBuffer(extractLabelIDsKernel, "LabelIDsInput", Unity.InferenceEngine.ComputeTensorData.Pin(labelIDTensor).buffer);
+        toCPUShader.SetBuffer(extractLabelIDsKernel, "BBoxInput", Unity.InferenceEngine.ComputeTensorData.Pin(bboxTensor).buffer);
         toCPUShader.SetBuffer(extractLabelIDsKernel, "LabelIDsOutput", labelIDsOutputBuffer);
         toCPUShader.SetBuffer(extractLabelIDsKernel, "BBoxOutput", bboxOutputBuffer);
         toCPUShader.SetInt("NumDetections", numDetections);

@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.Sentis;
+using Unity.InferenceEngine;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Runtime.InteropServices;

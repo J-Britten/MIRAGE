@@ -11,7 +11,7 @@ Anonymized
 ## Setup
 ### 1. Unity 
 1. Clone this repository
-2. Download and install [Unity](https://unity.com/download) version `2022.3.49f1`
+2. Download and install [Unity](https://unity.com/download) version `6000.1.7f1`
 3. Open the `MIRAGE Unity` Project.
 
 ### 2. Preparing Computational Models
@@ -56,6 +56,22 @@ We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Mo
 5. Add effects to the scene using the `UI`
     - If you are using a scene without `UI`, refer to the `Effects` section of this README
 6. Changes are saved on UI toggle.
+
+### Preparing the VR Scene for In-Vehicle XR Usage
+0. Set up Passthrough for Unity for your XR HMD. This step dependsg on the XR System you're using, please refer to the respective documentation.
+    - The scene is generally empty and aside from the UI only contains a virtual WSD (Front Glass Placeholder) through the video projection can be seen
+    - The effecte is created using a stencil buffer 
+1. Setting up the WSD. Select the `Front Glass Placeholder`. This is the virtual WSD, which should match your vehicle's WSD as closely as possible. 
+    - Ideally you would replace it with a 3D model of the windshield of your car using the same materials and shaders
+    - Run the scene to line it up with the real world as closely as possible. If you have a full 3D model of your vehicle available, it may be better to do this calibration step in a separate scene and then copy over the transform values afterwards.
+2. Setting up the Camera: Select the `Camera Input` Object (green gizmo) and move it to match the position of the position of the real camera mounted to the windshield as closely as possible. 
+3. Adjust the `VideoProjectionSurface`: To accurately project the image back onto a surface, the FOV value needs to match your camera's FOV
+    - Ideally the FOV is high enough to cover the entire WSD.
+    - A higher FOV could also cover side windows (requires additional virtual WSDs, see previous step)
+    - Adjust the viewing distance if needed (changes the scale of the projection plane)
+4. Testing:
+    - As multiple objects that need accurate placements are involved, getting it to `look right` may recover some trial and error.
+    - If no changes are done to the in-vehicle setup, this only has to be done once. Make sure to document the adjustments you made 
 
 ### UI Controls
 - Keyboard: Mouse or Arrow Keys, Enter/Space, ESC
@@ -136,14 +152,14 @@ We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Setti
 
 
 ## Adding new models
-We use Unity Sentis to execute `ONNX` models in Unity. While we provide abstract `runner` classes to simplify adding new models, we recommend taking a look at the [documentation first](https://docs.unity3d.com/Packages/com.unity.sentis@2.1).
+We use Unity Inference Engine (formerly Unity Sentis) to execute `ONNX` models in Unity. While we provide abstract `runner` classes to simplify adding new models, we recommend taking a look at the [documentation first](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/manual/index.html).
 
 Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipeline executes models.
 
 ### Exporting to ONNX
 1. Find a model you would want to use and export it to `ONNX`. 
     -   This process highly depends on the model and its implementation. 
-    -   Not all `ONNX` models are [compatible](https://docs.unity3d.com/Packages/com.unity.sentis@2.1/manual/supported-operators.html)
+    -   Not all `ONNX` models are [compatible](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/manual/supported-operators.html)
     - Note: We won't assist in exporting models to ONNX. Please refer to the developers of the models.
 2. Add the model to Unity. If no errors are thrown, the model is most likely compatible.
 3. Write down the input and output tensors
@@ -162,7 +178,7 @@ Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipe
 
 ## References
 
-- [Unity Sentis](https://docs.unity3d.com/Packages/com.unity.sentis@2.1)
+- [Unity Inference Engine](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/)
 
 The UI was built using
 - [Unity UI Extensions](https://github.com/Unity-UI-Extensions/com.unity.uiextensions) 

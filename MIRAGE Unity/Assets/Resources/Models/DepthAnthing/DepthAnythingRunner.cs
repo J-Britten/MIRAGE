@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Sentis;
+using Unity.InferenceEngine;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.UIElements;
@@ -36,11 +36,11 @@ public class DepthAnythingRunner : DepthEstimationRunner
     private float[] objectDepths;
     
     public RawImage InputImage;
-    private TextureTransform toTensor, toTexture;
+    private Unity.InferenceEngine.TextureTransform toTensor, toTexture;
 
-    private Tensor<float> inputTensor;
+    private Unity.InferenceEngine.Tensor<float> inputTensor;
 
-    private Tensor<float> outputTensor, textureTensor;
+    private Unity.InferenceEngine.Tensor<float> outputTensor, textureTensor;
 
     private ComputeShader objectDepthCompute;
     private int objectDepthKernel;
@@ -69,18 +69,18 @@ public class DepthAnythingRunner : DepthEstimationRunner
         pad_h = Mathf.CeilToInt(InputHeight / 14.0f) * 14 - InputHeight;
         
         int[] padding = new int[] {0, pad_w, 0, pad_h}; //width left, width right, height top, height bottom (since origin is top left)
-        var model = ModelLoader.Load(ModelAsset);
+        var model = Unity.InferenceEngine.ModelLoader.Load(ModelAsset);
 
-        var graph = new FunctionalGraph();
+        var graph = new Unity.InferenceEngine.FunctionalGraph();
 
         var input = graph.AddInput(model, 0); //this is dynamic but set to the scaledWidth and Height using toTensor Texture transform
 
-        input = input.Pad(padding, paddingValue);
+        input = Unity.InferenceEngine.Functional.Pad(input, padding, paddingValue);
 
-        var outputs = Functional.Forward(model, input);
+        var outputs = Unity.InferenceEngine.Functional.Forward(model, input);
         var output = outputs[0];
         var slicedOutput = output[.., 0..InputHeight, 0..InputWidth]; //remove the pad
-        slicedOutput= slicedOutput.Unsqueeze(0);
+        slicedOutput= Unity.InferenceEngine.Functional.Unsqueeze(slicedOutput, 0);
   
        // slicedOutput = Functional.Interpolate(slicedOutput, new int[] {OutputHeight, OutputWidth}, mode: "nearest"); //this causes issues sometimes
         var depthTexture = slicedOutput / 80f;        
@@ -116,7 +116,7 @@ public class DepthAnythingRunner : DepthEstimationRunner
     {
         modelRunning = true;
         if(InputImage != null) InputImage.texture = inputs[0];
-        inputTensor = TextureConverter.ToTensor(inputs[0], toTensor);
+        inputTensor = Unity.InferenceEngine.TextureConverter.ToTensor(inputs[0], toTensor);
 
         schedule = worker.ScheduleIterable(inputTensor);
 
@@ -127,8 +127,8 @@ public class DepthAnythingRunner : DepthEstimationRunner
     {
         DisposeOutput();
 
-        outputTensor = worker.PeekOutput(0) as Tensor<float>;
-        textureTensor = worker.PeekOutput(1) as Tensor<float>;
+        outputTensor = worker.PeekOutput(0) as Unity.InferenceEngine.Tensor<float>;
+        textureTensor = worker.PeekOutput(1) as Unity.InferenceEngine.Tensor<float>;
         outputTensor.ReadbackRequest();
         textureTensor.ReadbackRequest();
  
@@ -138,7 +138,7 @@ public class DepthAnythingRunner : DepthEstimationRunner
     protected override void ReadOutput()
     {
         
-        outputTexture = TextureConverter.ToTexture(textureTensor);
+        outputTexture = Unity.InferenceEngine.TextureConverter.ToTexture(textureTensor);
         UpdateOutputImage();
     }
 
@@ -157,7 +157,7 @@ public class DepthAnythingRunner : DepthEstimationRunner
     {
         if(outputTensor == null) return;
         objectDepthCompute.SetBuffer(objectDepthKernel, "SegmentationBuffer", segmentationBuffer);
-        objectDepthCompute.SetBuffer(objectDepthKernel, "DepthBuffer", ComputeTensorData.Pin(outputTensor).buffer);
+        objectDepthCompute.SetBuffer(objectDepthKernel, "DepthBuffer", Unity.InferenceEngine.ComputeTensorData.Pin(outputTensor).buffer);
         objectDepthCompute.SetBuffer(objectDepthKernel, "ObjectDepthBuffer", objectDepthBuffer);
 
         objectDepthCompute.SetInt("MaxObjectID", numObjects);
