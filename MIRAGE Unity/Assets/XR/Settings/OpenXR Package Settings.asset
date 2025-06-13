@@ -429,6 +429,7 @@ MonoBehaviour:
   - {fileID: -899332376283753835}
   - {fileID: 1613995478356898872}
   - {fileID: -843842483517335855}
+  - {fileID: -1815427642438720231}
   - {fileID: -5133497308833314905}
   - {fileID: 852944074668305888}
   - {fileID: 5057682230147607806}
@@ -449,5 +450,8 @@ MonoBehaviour:
   m_colorSubmissionModes:
     m_List: 00000000
   m_depthSubmissionMode: 0
+  m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
+  m_optimizeMultiviewRenderRegions: 0
+  m_foveatedRenderingApi: 0
