@@ -94,10 +94,8 @@ public class Pipeline : MonoBehaviour
             else {
                 processor.Initialize(segmentationModel, depthModel, postProcessingOverlay);
             }
-        }
-
-        // Initialize Benchmark Manager
-        benchmarkManager = FindObjectOfType<BenchmarkManager>(true);
+        }        // Initialize Benchmark Manager
+        benchmarkManager = FindAnyObjectByType<BenchmarkManager>();
     }
 #endregion
 
@@ -106,10 +104,6 @@ public class Pipeline : MonoBehaviour
     {
         while (true)
         {
-            // Start iteration timing for benchmark
-            if (benchmarkManager != null)
-                benchmarkManager.StartIteration();
-
             // Start segmentation timing
             if (benchmarkManager != null)
                 benchmarkManager.StartSegmentation();
@@ -182,18 +176,11 @@ public class Pipeline : MonoBehaviour
                 yield return null;
             }
         }
-    }
-
-    private IEnumerator RunPostProcessing()
+    }    private IEnumerator RunPostProcessing()
     {
         while (true)
         {
             PostProcessing();
-
-            // End iteration timing for benchmark (called after post-processing completes)
-            if (benchmarkManager != null)
-                benchmarkManager.EndIteration();
-
             yield return null;
         }
     }
@@ -201,17 +188,11 @@ public class Pipeline : MonoBehaviour
 #endregion
 
 #region Sequential Execution
-    float inferenceTime;
-
-    private IEnumerator RunSequentialPipeline()
+    float inferenceTime;    private IEnumerator RunSequentialPipeline()
     {
         while (true)
         {
-            // Start iteration timing for benchmark
-            if (benchmarkManager != null)
-                benchmarkManager.StartIteration();
-
-            RenderTexture.active = null;  // Reset active render texture        
+            RenderTexture.active = null;  // Reset active render texture
             inferenceTime = Time.realtimeSinceStartup;
 
             // Segmentation
@@ -240,18 +221,12 @@ public class Pipeline : MonoBehaviour
                 yield return StartCoroutine(inpaintingModel.RunModel(inputTexture, segmentationModel as YOLOSegmentationRunner, depthModel.ObjectDepthBuffer));
                 if (benchmarkManager != null)
                     benchmarkManager.EndInpainting();
-            }
-
-            // Post Processing
+            }            // Post Processing
             PostProcessing();
             
             segmentationModel.DisposeOutput();
             var speed = Time.realtimeSinceStartup - inferenceTime;
             segmentationTimeText.text = "Inference Speed: " + speed.ToString("F4") + "s\n" + "FPS: " + (1.0f / speed).ToString("F2");
-
-            // End iteration timing for benchmark
-            if (benchmarkManager != null)
-                benchmarkManager.EndIteration();
         }
     }
 #endregion

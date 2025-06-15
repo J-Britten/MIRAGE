@@ -160,7 +160,7 @@ VideoPlayer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 122460240}
   m_Enabled: 1
-  m_VideoClip: {fileID: 32900000, guid: 0dc422d573b35154aa3676ff784b0859, type: 3}
+  m_VideoClip: {fileID: 32900000, guid: c61e1b1a753c3474ba1eb0526b8c7408, type: 3}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
   m_TargetCamera: {fileID: 0}
@@ -1017,7 +1017,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1344c3c82d62a2a41a3576d8abb8e3ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!43 &651973663
+--- !u!43 &639500229
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -4057,7 +4057,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1309663285}
-  m_Mesh: {fileID: 651973663}
+  m_Mesh: {fileID: 639500229}
 --- !u!4 &1309663289
 Transform:
   m_ObjectHideFlags: 0

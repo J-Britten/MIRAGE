@@ -185,7 +185,7 @@ public class YOLOSegmentationRunner : SegmentationRunner
         inputTensor.Dispose();
         maskTensor.Dispose();
         scoresTensor.Dispose();     
-       // DisposeOutput(); //Temporary
+        DisposeOutput(); //Temporary
     }
 #endregion
 
