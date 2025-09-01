@@ -46,8 +46,10 @@ public class Pipeline : MonoBehaviour
     {
         if (RunAsSequence)
         {
+            benchmarkManager.SetParallelMode(false);
             StartCoroutine(RunSequentialPipeline());
         } else {
+            benchmarkManager.SetParallelMode(true);
             StartCoroutine(RunSegmentation());
             StartCoroutine(RunDepthEstimation());
             StartCoroutine(RunInpainting());
@@ -126,6 +128,7 @@ public class Pipeline : MonoBehaviour
 
     private IEnumerator RunDepthEstimation()
     {
+
         while (true)
         {
             if (depthModel.IsEnabled)
@@ -191,6 +194,9 @@ public class Pipeline : MonoBehaviour
     {
         while (true)
         {
+            // Start iteration timing for benchmark
+            benchmarkManager.StartIteration();
+            
             RenderTexture.active = null;  // Reset active render texture
             inferenceTime = Time.realtimeSinceStartup;
 
@@ -220,6 +226,9 @@ public class Pipeline : MonoBehaviour
             segmentationModel.DisposeOutput();
             var speed = Time.realtimeSinceStartup - inferenceTime;
             segmentationTimeText.text = "Inference Speed: " + speed.ToString("F4") + "s\n" + "FPS: " + (1.0f / speed).ToString("F2");
+            
+            // End iteration timing for benchmark
+            benchmarkManager.EndIteration();
         }
     }
 #endregion

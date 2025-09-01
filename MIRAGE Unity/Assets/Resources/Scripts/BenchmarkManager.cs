@@ -12,6 +12,8 @@ public interface IBenchmarkManager
     float maxBenchmarkDuration { get; }
     float BenchmarkDuration { get; }
     int IterationCount { get; }
+    bool autoStartEnabled { get; }
+    float autoStartDelay { get; }
     
     void StartBenchmark(float duration = 60f);
     void StopBenchmark();
@@ -26,7 +28,19 @@ public interface IBenchmarkManager
     void StartPostProcessing();
     void EndPostProcessing();
     void PrintBenchmarkResults();
+    void PrintDetailedBenchmarkData();
     BenchmarkManager.BenchmarkData[] GetBenchmarkResults();
+    
+    // Parallel mode support
+    void SetParallelMode(bool parallel);
+    
+    // Auto-start functionality
+    void TriggerAutoStart();
+    void CancelAutoStart();
+    void ResetAutoStart();
+    void SetAutoStartEnabled(bool enabled);
+    void SetAutoStartDelay(float delay);
+    void SetAutoStartOnFirstIteration(bool onFirstIteration);
 }
 
 /// <summary>
@@ -38,6 +52,8 @@ public class NullBenchmarkManager : IBenchmarkManager
     public float maxBenchmarkDuration => 0f;
     public float BenchmarkDuration => 0f;
     public int IterationCount => 0;
+    public bool autoStartEnabled => false;
+    public float autoStartDelay => 0f;
     
     public void StartBenchmark(float duration = 60f) { }
     public void StopBenchmark() { }
@@ -52,7 +68,17 @@ public class NullBenchmarkManager : IBenchmarkManager
     public void StartPostProcessing() { }
     public void EndPostProcessing() { }
     public void PrintBenchmarkResults() { }
+    public void PrintDetailedBenchmarkData() { }
     public BenchmarkManager.BenchmarkData[] GetBenchmarkResults() => new BenchmarkManager.BenchmarkData[0];
+    
+    // Auto-start functionality (null implementations)
+    public void TriggerAutoStart() { }
+    public void CancelAutoStart() { }
+    public void ResetAutoStart() { }
+    public void SetAutoStartEnabled(bool enabled) { }
+    public void SetAutoStartDelay(float delay) { }
+    public void SetAutoStartOnFirstIteration(bool onFirstIteration) { }
+    public void SetParallelMode(bool parallel) { }
 }
 
 /// <summary>
@@ -73,21 +99,50 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         public float totalIterationTime;
         public float unityFPS;
         public int frameCount;
+        
+        // Stage execution flags for debugging
+        public bool segmentationExecuted;
+        public bool depthEstimationExecuted;
+        public bool inpaintingExecuted;
+        public bool postProcessingExecuted;
     }
 
     [Header("Benchmark Settings")]
     [SerializeField] private bool _isBenchmarking = false;
     [SerializeField] private float _maxBenchmarkDuration = 60f; // Default 60 seconds
     
+    [Header("Auto-Start Settings")]
+    [SerializeField] private bool _autoStartEnabled = false;
+    [SerializeField] private float _autoStartDelay = 2f; // Delay before auto-starting benchmark
+    [SerializeField] private bool _autoStartOnFirstIteration = true; // Start benchmark when first iteration begins
+    
     // Interface properties
     public bool isBenchmarking => _isBenchmarking;
     public float maxBenchmarkDuration => _maxBenchmarkDuration;
+    public bool autoStartEnabled => _autoStartEnabled;
+    public float autoStartDelay => _autoStartDelay;
     
     private float benchmarkStartTime;
     private float lastIterationStartTime;
     private float currentIterationStartTime;
     private List<BenchmarkData> benchmarkResults = new List<BenchmarkData>();
     private int frameCounter = 0;
+    
+    // Auto-start tracking
+    private bool autoStartTriggered = false;
+    private Coroutine autoStartCoroutine;
+    private bool firstIterationDetected = false;
+    
+    // Parallel mode tracking - separate from iteration-based tracking
+    private bool isParallelMode = false;
+    private float lastParallelSampleTime = 0f;
+    private float parallelSampleInterval = 1.0f; // Sample every second in parallel mode
+    
+    // Parallel mode accumulation for multiple executions per sample period
+    private List<float> segmentationTimesThisPeriod = new List<float>();
+    private List<float> depthTimesThisPeriod = new List<float>();
+    private List<float> inpaintingTimesThisPeriod = new List<float>();
+    private List<float> postProcessingTimesThisPeriod = new List<float>();
     
     // Timing data for current iteration
     private float segmentationStartTime;
@@ -98,6 +153,12 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     private float inpaintingEndTime;
     private float postProcessingStartTime;
     private float postProcessingEndTime;
+    
+    // Flags to track which stages ran in current iteration
+    private bool segmentationRanThisIteration;
+    private bool depthEstimationRanThisIteration;
+    private bool inpaintingRanThisIteration;
+    private bool postProcessingRanThisIteration;
     
     // Events for Pipeline integration
     public event Action OnBenchmarkStarted;
@@ -135,6 +196,15 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         }
     }
 
+    void Start()
+    {
+        // Start auto-start monitoring if enabled
+        if (_autoStartEnabled && !_autoStartOnFirstIteration)
+        {
+            TriggerAutoStart();
+        }
+    }
+
     void Update()
     {
         if (_isBenchmarking)
@@ -144,8 +214,16 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
             {
                 StopBenchmark();
             }
+            
+            // Handle parallel mode sampling
+            if (isParallelMode && Time.realtimeSinceStartup - lastParallelSampleTime >= parallelSampleInterval)
+            {
+                SampleParallelTimings();
+                lastParallelSampleTime = Time.realtimeSinceStartup;
+            }
         }
     }
+
 
     public void StartBenchmark(float duration = 60f)
     {
@@ -160,7 +238,7 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         benchmarkStartTime = Time.realtimeSinceStartup;
         frameCounter = 0;
         benchmarkResults.Clear();
-        
+
         Debug.Log($"Benchmark started for {duration} seconds.");
         OnBenchmarkStarted?.Invoke();
     }
@@ -185,7 +263,29 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
 
     public void StartIteration()
     {
-        if (!_isBenchmarking) return;
+        if (!_isBenchmarking) 
+        {
+            // Handle auto-start on first iteration if enabled
+            if (_autoStartEnabled && _autoStartOnFirstIteration && !firstIterationDetected)
+            {
+                firstIterationDetected = true;
+                TriggerAutoStart();
+            }
+            
+            if (!_isBenchmarking) return; // Still not benchmarking after auto-start attempt
+        }
+        
+        // Reset iteration tracking flags
+        segmentationRanThisIteration = false;
+        depthEstimationRanThisIteration = false;
+        inpaintingRanThisIteration = false;
+        postProcessingRanThisIteration = false;
+        
+        // Initialize timing values to 0
+        segmentationStartTime = segmentationEndTime = 0f;
+        depthStartTime = depthEndTime = 0f;
+        inpaintingStartTime = inpaintingEndTime = 0f;
+        postProcessingStartTime = postProcessingEndTime = 0f;
         
         currentIterationStartTime = Time.realtimeSinceStartup;
         frameCounter++;
@@ -198,16 +298,27 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         float iterationTime = Time.realtimeSinceStartup - currentIterationStartTime;
         float unityFPS = 1.0f / Time.deltaTime;
         
+        // Calculate timing values, using 0 for stages that didn't run
+        float segTime = segmentationRanThisIteration ? (segmentationEndTime - segmentationStartTime) : 0f;
+        float depthTime = depthEstimationRanThisIteration ? (depthEndTime - depthStartTime) : 0f;
+        float inpaintTime = inpaintingRanThisIteration ? (inpaintingEndTime - inpaintingStartTime) : 0f;
+        float postProcTime = postProcessingRanThisIteration ? (postProcessingEndTime - postProcessingStartTime) : 0f;
+        
         BenchmarkData data = new BenchmarkData
         {
             timestamp = Time.realtimeSinceStartup - benchmarkStartTime,
-            segmentationTime = segmentationEndTime - segmentationStartTime,
-            depthEstimationTime = depthEndTime - depthStartTime,
-            inpaintingTime = inpaintingEndTime - inpaintingStartTime,
-            postProcessingTime = postProcessingEndTime - postProcessingStartTime,
+            segmentationTime = segTime,
+            depthEstimationTime = depthTime,
+            inpaintingTime = inpaintTime,
+            postProcessingTime = postProcTime,
             totalIterationTime = iterationTime,
             unityFPS = unityFPS,
-            frameCount = frameCounter
+            frameCount = frameCounter,
+            // Track which stages actually executed
+            segmentationExecuted = segmentationRanThisIteration,
+            depthEstimationExecuted = depthEstimationRanThisIteration,
+            inpaintingExecuted = inpaintingRanThisIteration,
+            postProcessingExecuted = postProcessingRanThisIteration
         };
         
         benchmarkResults.Add(data);
@@ -216,50 +327,106 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     // Timing methods for each pipeline stage
     public void StartSegmentation()
     {
+        // Handle auto-start on first stage execution in parallel mode
+        if (isParallelMode && _autoStartEnabled && _autoStartOnFirstIteration && !firstIterationDetected)
+        {
+            firstIterationDetected = true;
+            TriggerAutoStart();
+        }
+        
         if (!_isBenchmarking) return;
         segmentationStartTime = Time.realtimeSinceStartup;
+        segmentationRanThisIteration = true;
     }
 
     public void EndSegmentation()
     {
         if (!_isBenchmarking) return;
         segmentationEndTime = Time.realtimeSinceStartup;
+        float duration = segmentationEndTime - segmentationStartTime;
+        
+        if (isParallelMode) 
+        {
+            segmentationTimesThisPeriod.Add(duration);
+        }
     }
 
     public void StartDepthEstimation()
     {
+        // Handle auto-start on first stage execution in parallel mode
+        if (isParallelMode && _autoStartEnabled && _autoStartOnFirstIteration && !firstIterationDetected)
+        {
+            firstIterationDetected = true;
+            TriggerAutoStart();
+        }
+        
         if (!_isBenchmarking) return;
         depthStartTime = Time.realtimeSinceStartup;
+        depthEstimationRanThisIteration = true;
     }
 
     public void EndDepthEstimation()
     {
         if (!_isBenchmarking) return;
         depthEndTime = Time.realtimeSinceStartup;
+        float duration = depthEndTime - depthStartTime;
+        
+        if (isParallelMode) 
+        {
+            depthTimesThisPeriod.Add(duration);
+        }
     }
 
     public void StartInpainting()
     {
+        // Handle auto-start on first stage execution in parallel mode
+        if (isParallelMode && _autoStartEnabled && _autoStartOnFirstIteration && !firstIterationDetected)
+        {
+            firstIterationDetected = true;
+            TriggerAutoStart();
+        }
+        
         if (!_isBenchmarking) return;
         inpaintingStartTime = Time.realtimeSinceStartup;
+        inpaintingRanThisIteration = true;
     }
 
     public void EndInpainting()
     {
         if (!_isBenchmarking) return;
         inpaintingEndTime = Time.realtimeSinceStartup;
+        float duration = inpaintingEndTime - inpaintingStartTime;
+        
+        if (isParallelMode) 
+        {
+            inpaintingTimesThisPeriod.Add(duration);
+        }
     }
 
     public void StartPostProcessing()
     {
+        // Handle auto-start on first stage execution in parallel mode
+        if (isParallelMode && _autoStartEnabled && _autoStartOnFirstIteration && !firstIterationDetected)
+        {
+            firstIterationDetected = true;
+            TriggerAutoStart();
+        }
+        
         if (!_isBenchmarking) return;
         postProcessingStartTime = Time.realtimeSinceStartup;
+        postProcessingRanThisIteration = true;
     }
 
     public void EndPostProcessing()
     {
         if (!_isBenchmarking) return;
         postProcessingEndTime = Time.realtimeSinceStartup;
+        float duration = postProcessingEndTime - postProcessingStartTime;
+        
+        if (isParallelMode) 
+        {
+            postProcessingTimesThisPeriod.Add(duration);
+        }
     }
 
     private void ReportBenchmarkResults()
@@ -281,6 +448,16 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         var iterationStats = CalculateStatistics(benchmarkResults, d => d.totalIterationTime);
         var fpsStats = CalculateStatistics(benchmarkResults, d => d.unityFPS);
 
+        // Count how many times each stage ran
+        int segmentationCount = 0, depthCount = 0, inpaintingCount = 0, postProcessingCount = 0;
+        foreach (var data in benchmarkResults)
+        {
+            if (data.segmentationExecuted) segmentationCount++;
+            if (data.depthEstimationExecuted) depthCount++;
+            if (data.inpaintingExecuted) inpaintingCount++;
+            if (data.postProcessingExecuted) postProcessingCount++;
+        }
+
         // Build comprehensive report
         System.Text.StringBuilder report = new System.Text.StringBuilder();
         report.AppendLine("\n=== BENCHMARK RESULTS ===");
@@ -289,32 +466,67 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         report.AppendLine($"Average Pipeline FPS: {1.0f / iterationStats.average:F2}");
         report.AppendLine();
 
+        // Helper function to safely calculate FPS
+        System.Func<float, string> SafeFPS = (time) => time > 0f ? $"{1.0f / time:F1}" : "N/A";
+
         report.AppendLine("SEGMENTATION TIMING:");
-        report.AppendLine($"  Average: {segStats.average:F4}s ({1.0f / segStats.average:F1} FPS)");
-        report.AppendLine($"  Minimum: {segStats.min:F4}s ({1.0f / segStats.min:F1} FPS)");
-        report.AppendLine($"  Maximum: {segStats.max:F4}s ({1.0f / segStats.max:F1} FPS)");
-        report.AppendLine($"  Std Dev: {segStats.stdDev:F4}s");
+        if (segStats.average > 0f)
+        {
+            report.AppendLine($"  Executed: {segmentationCount}/{count} iterations ({100f * segmentationCount / count:F1}%)");
+            report.AppendLine($"  Average: {segStats.average:F4}s ({SafeFPS(segStats.average)} FPS)");
+            report.AppendLine($"  Minimum: {segStats.min:F4}s ({SafeFPS(segStats.min)} FPS)");
+            report.AppendLine($"  Maximum: {segStats.max:F4}s ({SafeFPS(segStats.max)} FPS)");
+            report.AppendLine($"  Std Dev: {segStats.stdDev:F4}s");
+        }
+        else
+        {
+            report.AppendLine("  No segmentation timing data available");
+        }
         report.AppendLine();
 
         report.AppendLine("DEPTH ESTIMATION TIMING:");
-        report.AppendLine($"  Average: {depthStats.average:F4}s ({1.0f / depthStats.average:F1} FPS)");
-        report.AppendLine($"  Minimum: {depthStats.min:F4}s ({1.0f / depthStats.min:F1} FPS)");
-        report.AppendLine($"  Maximum: {depthStats.max:F4}s ({1.0f / depthStats.max:F1} FPS)");
-        report.AppendLine($"  Std Dev: {depthStats.stdDev:F4}s");
+        if (depthStats.average > 0f)
+        {
+            report.AppendLine($"  Executed: {depthCount}/{count} iterations ({100f * depthCount / count:F1}%)");
+            report.AppendLine($"  Average: {depthStats.average:F4}s ({SafeFPS(depthStats.average)} FPS)");
+            report.AppendLine($"  Minimum: {depthStats.min:F4}s ({SafeFPS(depthStats.min)} FPS)");
+            report.AppendLine($"  Maximum: {depthStats.max:F4}s ({SafeFPS(depthStats.max)} FPS)");
+            report.AppendLine($"  Std Dev: {depthStats.stdDev:F4}s");
+        }
+        else
+        {
+            report.AppendLine("  Depth estimation was disabled or did not run");
+        }
         report.AppendLine();
 
         report.AppendLine("INPAINTING TIMING:");
-        report.AppendLine($"  Average: {inpaintStats.average:F4}s ({1.0f / inpaintStats.average:F1} FPS)");
-        report.AppendLine($"  Minimum: {inpaintStats.min:F4}s ({1.0f / inpaintStats.min:F1} FPS)");
-        report.AppendLine($"  Maximum: {inpaintStats.max:F4}s ({1.0f / inpaintStats.max:F1} FPS)");
-        report.AppendLine($"  Std Dev: {inpaintStats.stdDev:F4}s");
+        if (inpaintStats.average > 0f)
+        {
+            report.AppendLine($"  Executed: {inpaintingCount}/{count} iterations ({100f * inpaintingCount / count:F1}%)");
+            report.AppendLine($"  Average: {inpaintStats.average:F4}s ({SafeFPS(inpaintStats.average)} FPS)");
+            report.AppendLine($"  Minimum: {inpaintStats.min:F4}s ({SafeFPS(inpaintStats.min)} FPS)");
+            report.AppendLine($"  Maximum: {inpaintStats.max:F4}s ({SafeFPS(inpaintStats.max)} FPS)");
+            report.AppendLine($"  Std Dev: {inpaintStats.stdDev:F4}s");
+        }
+        else
+        {
+            report.AppendLine("  Inpainting was disabled or did not run");
+        }
         report.AppendLine();
 
         report.AppendLine("POST-PROCESSING TIMING:");
-        report.AppendLine($"  Average: {postProcStats.average:F4}s ({1.0f / postProcStats.average:F1} FPS)");
-        report.AppendLine($"  Minimum: {postProcStats.min:F4}s ({1.0f / postProcStats.min:F1} FPS)");
-        report.AppendLine($"  Maximum: {postProcStats.max:F4}s ({1.0f / postProcStats.max:F1} FPS)");
-        report.AppendLine($"  Std Dev: {postProcStats.stdDev:F4}s");
+        if (postProcStats.average > 0f)
+        {
+            report.AppendLine($"  Executed: {postProcessingCount}/{count} iterations ({100f * postProcessingCount / count:F1}%)");
+            report.AppendLine($"  Average: {postProcStats.average:F4}s ({SafeFPS(postProcStats.average)} FPS)");
+            report.AppendLine($"  Minimum: {postProcStats.min:F4}s ({SafeFPS(postProcStats.min)} FPS)");
+            report.AppendLine($"  Maximum: {postProcStats.max:F4}s ({SafeFPS(postProcStats.max)} FPS)");
+            report.AppendLine($"  Std Dev: {postProcStats.stdDev:F4}s");
+        }
+        else
+        {
+            report.AppendLine("  Post-processing was disabled or did not run");
+        }
         report.AppendLine();
 
         report.AppendLine("TOTAL ITERATION TIMING:");
@@ -346,29 +558,49 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     {
         if (data.Count == 0) return new Statistics();
 
+        // Filter out zero values (stages that didn't run)
+        var validValues = new List<float>();
+        foreach (var item in data)
+        {
+            float value = selector(item);
+            if (value > 0f) // Only include positive timing values
+            {
+                validValues.Add(value);
+            }
+        }
+
+        if (validValues.Count == 0) 
+        {
+            return new Statistics
+            {
+                min = 0f,
+                max = 0f,
+                average = 0f,
+                stdDev = 0f
+            };
+        }
+
         float min = float.MaxValue;
         float max = float.MinValue;
         float sum = 0f;
 
-        foreach (var item in data)
+        foreach (var value in validValues)
         {
-            float value = selector(item);
             if (value < min) min = value;
             if (value > max) max = value;
             sum += value;
         }
 
-        float average = sum / data.Count;
+        float average = sum / validValues.Count;
 
         // Calculate standard deviation
         float sumSquaredDiff = 0f;
-        foreach (var item in data)
+        foreach (var value in validValues)
         {
-            float value = selector(item);
             float diff = value - average;
             sumSquaredDiff += diff * diff;
         }
-        float stdDev = Mathf.Sqrt(sumSquaredDiff / data.Count);
+        float stdDev = Mathf.Sqrt(sumSquaredDiff / validValues.Count);
 
         return new Statistics
         {
@@ -394,4 +626,216 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     {
         ReportBenchmarkResults();
     }
+
+    /// <summary>
+    /// Print detailed iteration-by-iteration data for debugging
+    /// </summary>
+    public void PrintDetailedBenchmarkData()
+    {
+        if (benchmarkResults.Count == 0)
+        {
+            Debug.Log("No benchmark data to display.");
+            return;
+        }
+
+        System.Text.StringBuilder report = new System.Text.StringBuilder();
+        report.AppendLine("\n=== DETAILED BENCHMARK DATA ===");
+        report.AppendLine("Frame | Timestamp | Seg(ms) | Depth(ms) | Inpaint(ms) | PostProc(ms) | Total(ms) | Flags");
+        report.AppendLine("------|-----------|---------|-----------|-------------|-------------|-----------|----------");
+
+        for (int i = 0; i < benchmarkResults.Count; i++)
+        {
+            var data = benchmarkResults[i];
+            string flags = "";
+            flags += data.segmentationExecuted ? "S" : "-";
+            flags += data.depthEstimationExecuted ? "D" : "-";
+            flags += data.inpaintingExecuted ? "I" : "-";
+            flags += data.postProcessingExecuted ? "P" : "-";
+
+            report.AppendLine($"{data.frameCount,5} | {data.timestamp,9:F2} | " +
+                            $"{data.segmentationTime * 1000,7:F2} | " +
+                            $"{data.depthEstimationTime * 1000,9:F2} | " +
+                            $"{data.inpaintingTime * 1000,11:F2} | " +
+                            $"{data.postProcessingTime * 1000,11:F2} | " +
+                            $"{data.totalIterationTime * 1000,9:F2} | " +
+                            $"{flags,8}");
+        }
+
+        report.AppendLine("=================================");
+        Debug.Log(report.ToString());
+    }
+
+    /// <summary>
+    /// Set whether the pipeline is running in parallel mode
+    /// </summary>
+    public void SetParallelMode(bool parallel)
+    {
+        isParallelMode = parallel;
+        if (parallel)
+        {
+            lastParallelSampleTime = Time.realtimeSinceStartup;
+            // Clear any existing accumulated timing data
+            segmentationTimesThisPeriod.Clear();
+            depthTimesThisPeriod.Clear();
+            inpaintingTimesThisPeriod.Clear();
+            postProcessingTimesThisPeriod.Clear();
+        }
+    }
+    
+    /// <summary>
+    /// Sample timing data in parallel mode
+    /// </summary>
+    private void SampleParallelTimings()
+    {
+        if (!_isBenchmarking) return;
+        
+        frameCounter++;
+        float sampleTime = Time.realtimeSinceStartup;
+        float unityFPS = 1.0f / Time.deltaTime;
+        
+        // Calculate average timing for each stage during this period
+        float segTime = segmentationTimesThisPeriod.Count > 0 ? segmentationTimesThisPeriod[segmentationTimesThisPeriod.Count - 1] : 0f; // Use most recent
+        float depthTime = depthTimesThisPeriod.Count > 0 ? depthTimesThisPeriod[depthTimesThisPeriod.Count - 1] : 0f;
+        float inpaintTime = inpaintingTimesThisPeriod.Count > 0 ? inpaintingTimesThisPeriod[inpaintingTimesThisPeriod.Count - 1] : 0f;
+        float postProcTime = postProcessingTimesThisPeriod.Count > 0 ? postProcessingTimesThisPeriod[postProcessingTimesThisPeriod.Count - 1] : 0f;
+        
+        // In parallel mode, total iteration time is the sum of all active stages (since they run in parallel, 
+        // the real "iteration time" would be the longest running stage, but for benchmarking purposes, 
+        // we'll use the sum to show total computational cost)
+        float totalIterTime = segTime + depthTime + inpaintTime + postProcTime;
+        
+        BenchmarkData data = new BenchmarkData
+        {
+            timestamp = sampleTime - benchmarkStartTime,
+            segmentationTime = segTime,
+            depthEstimationTime = depthTime,
+            inpaintingTime = inpaintTime,
+            postProcessingTime = postProcTime,
+            totalIterationTime = totalIterTime, // Use calculated total instead of sample interval
+            unityFPS = unityFPS,
+            frameCount = frameCounter,
+            // Track which stages actually executed since last sample
+            segmentationExecuted = segmentationTimesThisPeriod.Count > 0,
+            depthEstimationExecuted = depthTimesThisPeriod.Count > 0,
+            inpaintingExecuted = inpaintingTimesThisPeriod.Count > 0,
+            postProcessingExecuted = postProcessingTimesThisPeriod.Count > 0
+        };
+        
+        benchmarkResults.Add(data);
+        
+        // Clear accumulated timing for next sample period
+        segmentationTimesThisPeriod.Clear();
+        depthTimesThisPeriod.Clear();
+        inpaintingTimesThisPeriod.Clear();
+        postProcessingTimesThisPeriod.Clear();
+    }
+
+    #region Auto-Start Functionality
+    
+    /// <summary>
+    /// Triggers auto-start of benchmark with configured delay
+    /// </summary>
+    public void TriggerAutoStart()
+    {
+        if (_isBenchmarking || autoStartTriggered)
+        {
+            return; // Already benchmarking or auto-start already triggered
+        }
+
+        if (autoStartCoroutine != null)
+        {
+            StopCoroutine(autoStartCoroutine);
+        }
+
+        autoStartTriggered = true;
+        autoStartCoroutine = StartCoroutine(AutoStartBenchmarkCoroutine());
+    }
+
+    /// <summary>
+    /// Coroutine that handles the delayed auto-start of benchmarking
+    /// </summary>
+    private System.Collections.IEnumerator AutoStartBenchmarkCoroutine()
+    {
+        Debug.Log($"Auto-start triggered. Benchmark will start in {_autoStartDelay} seconds...");
+        
+        yield return new WaitForSeconds(_autoStartDelay);
+        
+        if (!_isBenchmarking) // Check if benchmark wasn't manually started during delay
+        {
+            Debug.Log("Auto-starting benchmark...");
+            StartBenchmark(_maxBenchmarkDuration);
+        }
+        
+        autoStartCoroutine = null;
+    }
+
+    /// <summary>
+    /// Cancels auto-start if it's pending
+    /// </summary>
+    public void CancelAutoStart()
+    {
+        if (autoStartCoroutine != null)
+        {
+            StopCoroutine(autoStartCoroutine);
+            autoStartCoroutine = null;
+            autoStartTriggered = false;
+            Debug.Log("Auto-start cancelled.");
+        }
+    }
+
+    /// <summary>
+    /// Resets auto-start state - useful for restarting auto-start functionality
+    /// </summary>
+    public void ResetAutoStart()
+    {
+        CancelAutoStart();
+        autoStartTriggered = false;
+        firstIterationDetected = false;
+        
+        if (_autoStartEnabled && !_autoStartOnFirstIteration)
+        {
+            TriggerAutoStart();
+        }
+    }
+
+    /// <summary>
+    /// Public method to enable/disable auto-start at runtime
+    /// </summary>
+    public void SetAutoStartEnabled(bool enabled)
+    {
+        _autoStartEnabled = enabled;
+        
+        if (!enabled)
+        {
+            CancelAutoStart();
+        }
+        else if (!_autoStartOnFirstIteration && !autoStartTriggered)
+        {
+            TriggerAutoStart();
+        }
+    }
+
+    /// <summary>
+    /// Public method to change auto-start delay at runtime
+    /// </summary>
+    public void SetAutoStartDelay(float delay)
+    {
+        _autoStartDelay = Mathf.Max(0f, delay);
+    }
+
+    /// <summary>
+    /// Public method to change auto-start trigger mode at runtime
+    /// </summary>
+    public void SetAutoStartOnFirstIteration(bool onFirstIteration)
+    {
+        _autoStartOnFirstIteration = onFirstIteration;
+        
+        // If switching to immediate mode and auto-start is enabled, trigger it
+        if (!onFirstIteration && _autoStartEnabled && !autoStartTriggered)
+        {
+            TriggerAutoStart();
+        }
+    }
+
+    #endregion
 }
