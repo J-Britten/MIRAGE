@@ -9,7 +9,7 @@ using UnityEditor;
 public class BenchmarkWindow : EditorWindow
 {
     private float benchmarkDuration = 60f;
-    private BenchmarkManager benchmarkManager;
+    private IBenchmarkManager benchmarkManager;
     private Vector2 scrollPosition;
     
     [MenuItem("MIRAGE/Benchmark Controller")]
@@ -48,10 +48,11 @@ public class BenchmarkWindow : EditorWindow
         // Find benchmark manager if not cached
         if (benchmarkManager == null)
         {
-            benchmarkManager = BenchmarkManager.Instance;
+            var benchmarkManagerComponent = BenchmarkManager.Instance;
+            benchmarkManager = benchmarkManagerComponent != null ? benchmarkManagerComponent : new NullBenchmarkManager();
         }
 
-        if (benchmarkManager == null)
+        if (benchmarkManager == null || benchmarkManager is NullBenchmarkManager)
         {
             EditorGUILayout.HelpBox("BenchmarkManager not found in scene", MessageType.Warning);
             return;

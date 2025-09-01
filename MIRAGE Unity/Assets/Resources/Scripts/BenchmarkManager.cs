@@ -4,11 +4,63 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Manages benchmarking for the Pipeline system, logging performance metrics to file
+/// Interface for benchmark management to support null object pattern
+/// </summary>
+public interface IBenchmarkManager
+{
+    bool isBenchmarking { get; }
+    float maxBenchmarkDuration { get; }
+    float BenchmarkDuration { get; }
+    int IterationCount { get; }
+    
+    void StartBenchmark(float duration = 60f);
+    void StopBenchmark();
+    void StartIteration();
+    void EndIteration();
+    void StartSegmentation();
+    void EndSegmentation();
+    void StartDepthEstimation();
+    void EndDepthEstimation();
+    void StartInpainting();
+    void EndInpainting();
+    void StartPostProcessing();
+    void EndPostProcessing();
+    void PrintBenchmarkResults();
+    BenchmarkManager.BenchmarkData[] GetBenchmarkResults();
+}
+
+/// <summary>
+/// Null object implementation that does nothing - used when benchmarking is disabled
+/// </summary>
+public class NullBenchmarkManager : IBenchmarkManager
+{
+    public bool isBenchmarking => false;
+    public float maxBenchmarkDuration => 0f;
+    public float BenchmarkDuration => 0f;
+    public int IterationCount => 0;
+    
+    public void StartBenchmark(float duration = 60f) { }
+    public void StopBenchmark() { }
+    public void StartIteration() { }
+    public void EndIteration() { }
+    public void StartSegmentation() { }
+    public void EndSegmentation() { }
+    public void StartDepthEstimation() { }
+    public void EndDepthEstimation() { }
+    public void StartInpainting() { }
+    public void EndInpainting() { }
+    public void StartPostProcessing() { }
+    public void EndPostProcessing() { }
+    public void PrintBenchmarkResults() { }
+    public BenchmarkManager.BenchmarkData[] GetBenchmarkResults() => new BenchmarkManager.BenchmarkData[0];
+}
+
+/// <summary>
+/// Manages benchmarking for the Pipeline system, logging performance metrics
 /// 
 /// Author: J-Britten
 /// </summary>
-public class BenchmarkManager : MonoBehaviour
+public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
 {
     [System.Serializable]
     public class BenchmarkData
@@ -24,8 +76,12 @@ public class BenchmarkManager : MonoBehaviour
     }
 
     [Header("Benchmark Settings")]
-    public bool isBenchmarking = false;
-    public float maxBenchmarkDuration = 60f; // Default 60 seconds
+    [SerializeField] private bool _isBenchmarking = false;
+    [SerializeField] private float _maxBenchmarkDuration = 60f; // Default 60 seconds
+    
+    // Interface properties
+    public bool isBenchmarking => _isBenchmarking;
+    public float maxBenchmarkDuration => _maxBenchmarkDuration;
     
     private float benchmarkStartTime;
     private float lastIterationStartTime;
@@ -81,10 +137,10 @@ public class BenchmarkManager : MonoBehaviour
 
     void Update()
     {
-        if (isBenchmarking)
+        if (_isBenchmarking)
         {
             // Check if benchmark should auto-stop
-            if (Time.realtimeSinceStartup - benchmarkStartTime >= maxBenchmarkDuration)
+            if (Time.realtimeSinceStartup - benchmarkStartTime >= _maxBenchmarkDuration)
             {
                 StopBenchmark();
             }
@@ -93,14 +149,14 @@ public class BenchmarkManager : MonoBehaviour
 
     public void StartBenchmark(float duration = 60f)
     {
-        if (isBenchmarking)
+        if (_isBenchmarking)
         {
             Debug.LogWarning("Benchmark is already running!");
             return;
         }
 
-        maxBenchmarkDuration = duration;
-        isBenchmarking = true;
+        _maxBenchmarkDuration = duration;
+        _isBenchmarking = true;
         benchmarkStartTime = Time.realtimeSinceStartup;
         frameCounter = 0;
         benchmarkResults.Clear();
@@ -111,13 +167,13 @@ public class BenchmarkManager : MonoBehaviour
 
     public void StopBenchmark()
     {
-        if (!isBenchmarking)
+        if (!_isBenchmarking)
         {
             Debug.LogWarning("No benchmark is currently running!");
             return;
         }
 
-        isBenchmarking = false;
+        _isBenchmarking = false;
         
         // Report summary
         ReportBenchmarkResults();
@@ -129,7 +185,7 @@ public class BenchmarkManager : MonoBehaviour
 
     public void StartIteration()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         
         currentIterationStartTime = Time.realtimeSinceStartup;
         frameCounter++;
@@ -137,7 +193,7 @@ public class BenchmarkManager : MonoBehaviour
 
     public void EndIteration()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         
         float iterationTime = Time.realtimeSinceStartup - currentIterationStartTime;
         float unityFPS = 1.0f / Time.deltaTime;
@@ -160,49 +216,49 @@ public class BenchmarkManager : MonoBehaviour
     // Timing methods for each pipeline stage
     public void StartSegmentation()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         segmentationStartTime = Time.realtimeSinceStartup;
     }
 
     public void EndSegmentation()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         segmentationEndTime = Time.realtimeSinceStartup;
     }
 
     public void StartDepthEstimation()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         depthStartTime = Time.realtimeSinceStartup;
     }
 
     public void EndDepthEstimation()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         depthEndTime = Time.realtimeSinceStartup;
     }
 
     public void StartInpainting()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         inpaintingStartTime = Time.realtimeSinceStartup;
     }
 
     public void EndInpainting()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         inpaintingEndTime = Time.realtimeSinceStartup;
     }
 
     public void StartPostProcessing()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         postProcessingStartTime = Time.realtimeSinceStartup;
     }
 
     public void EndPostProcessing()
     {
-        if (!isBenchmarking) return;
+        if (!_isBenchmarking) return;
         postProcessingEndTime = Time.realtimeSinceStartup;
     }
 
@@ -324,7 +380,7 @@ public class BenchmarkManager : MonoBehaviour
     }
 
     // Public properties for UI display
-    public float BenchmarkDuration => isBenchmarking ? Time.realtimeSinceStartup - benchmarkStartTime : 0f;
+    public float BenchmarkDuration => _isBenchmarking ? Time.realtimeSinceStartup - benchmarkStartTime : 0f;
     public int IterationCount => frameCounter;
     
     // Public method to get current results
