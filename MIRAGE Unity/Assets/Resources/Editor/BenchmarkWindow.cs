@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEditor;
-using System.IO;
 
 /// <summary>
 /// Editor window for controlling pipeline benchmarking
@@ -64,9 +63,6 @@ public class BenchmarkWindow : EditorWindow
         EditorGUILayout.LabelField("Benchmark Settings", EditorStyles.boldLabel);
         benchmarkDuration = EditorGUILayout.FloatField("Duration (seconds):", benchmarkDuration);
         
-        // File saving toggle
-        benchmarkManager.SaveToFile = EditorGUILayout.Toggle("Save to File:", benchmarkManager.SaveToFile);
-        
         if (benchmarkDuration <= 0)
         {
             benchmarkDuration = 1f;
@@ -125,50 +121,16 @@ public class BenchmarkWindow : EditorWindow
 
         EditorGUILayout.Space();
 
-        // Log File Information
-        EditorGUILayout.LabelField("Log File", EditorStyles.boldLabel);
-        
-        if (!benchmarkManager.SaveToFile)
-        {
-            EditorGUILayout.HelpBox("File logging is disabled", MessageType.Info);
-        }
-        else if (!string.IsNullOrEmpty(benchmarkManager.LogFilePath))
-        {
-            EditorGUILayout.LabelField("Current Log File:");
-            EditorGUILayout.SelectableLabel(benchmarkManager.LogFilePath, EditorStyles.textField, GUILayout.Height(40));
-            
-            if (GUILayout.Button("Open Log Folder"))
-            {
-                string folderPath = Path.GetDirectoryName(benchmarkManager.LogFilePath);
-                EditorUtility.RevealInFinder(folderPath);
-            }
-            
-            if (GUILayout.Button("Open Log File"))
-            {
-                if (File.Exists(benchmarkManager.LogFilePath))
-                {
-                    System.Diagnostics.Process.Start(benchmarkManager.LogFilePath);
-                }
-                else
-                {
-                    EditorUtility.DisplayDialog("File Not Found", "The log file does not exist yet.", "OK");
-                }
-            }
-        }
-
-        EditorGUILayout.Space();
-
         // Instructions
         EditorGUILayout.LabelField("Instructions", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
             "1. Set the desired benchmark duration\n" +
-            "2. Toggle 'Save to File' if you want to disable CSV logging\n" +
-            "3. Click 'Start Benchmark' to begin logging\n" +
-            "4. The benchmark will automatically stop after the specified duration\n" +
-            "5. Use 'Stop Benchmark' to manually stop before completion\n" +
-            "6. Use 'Print Current Results' to see detailed statistics in the console\n" +
-            "7. Results include min/max/average/std dev for all timing metrics\n" +
-            "8. When file saving is enabled, results are saved in CSV format with detailed timing data",
+            "2. Click 'Start Benchmark' to begin logging\n" +
+            "3. The benchmark will automatically stop after the specified duration\n" +
+            "4. Use 'Stop Benchmark' to manually stop before completion\n" +
+            "5. Use 'Print Current Results' to see detailed statistics in the console\n" +
+            "6. Results include min/max/average/std dev for all timing metrics\n" +
+            "7. All benchmark data is available in memory for real-time analysis",
             MessageType.Info);
 
         EditorGUILayout.EndScrollView();
