@@ -98,6 +98,24 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
 
         var alpha = Unity.InferenceEngine.Functional.Concat(new[] {op, inputMsk}, 1);
         runtimeModel = graph.Compile(alpha, ceil);
+        
+        // Initialize output textures once to avoid recreating them every frame
+        PrepareOutputTextures();
+    }
+    
+    private void PrepareOutputTextures()
+    {
+        // Create output texture with proper format and size
+        if (outputTexture != null) outputTexture.Release();
+        outputTexture = new RenderTexture(OutputWidth, OutputHeight, 0, RenderTextureFormat.ARGB32);
+        outputTexture.enableRandomWrite = true;
+        outputTexture.Create();
+        
+        // Create mask output texture
+        if (maskOutputTexture != null) maskOutputTexture.Release();
+        maskOutputTexture = new RenderTexture(OutputWidth, OutputHeight, 0, RenderTextureFormat.R8);
+        maskOutputTexture.enableRandomWrite = true;
+        maskOutputTexture.Create();
     }
 
     private void PreparePreProcessing() {
@@ -202,15 +220,14 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
 
     protected override void ReadOutput()
     {
-        if (outputTexture != null) {
-            outputTexture.Release();
-        }
-        if( maskOutputTexture != null) maskOutputTexture.Release();
-
-
-        outputTexture = Unity.InferenceEngine.TextureConverter.ToTexture(outputTensor);
+        
+        // Use new RenderToTexture API with pre-created textures
+        var outputTransform = new TextureTransform();
+        Unity.InferenceEngine.TextureConverter.RenderToTexture(outputTensor, outputTexture, outputTransform);
+        
         if(MaskImage != null) {
-            maskOutputTexture = Unity.InferenceEngine.TextureConverter.ToTexture(inputMaskTensor);
+            var maskTransform = new TextureTransform();
+            Unity.InferenceEngine.TextureConverter.RenderToTexture(inputMaskTensor, maskOutputTexture, maskTransform);
             MaskImage.texture = maskOutputTexture;
         }
 
@@ -231,7 +248,8 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
     {
         DisposeOutput();
         if(worker != null) worker.Dispose();
-        if ( outputTexture != null) outputTexture.Release();
+        if (outputTexture != null) outputTexture.Release();
+        if (maskOutputTexture != null) maskOutputTexture.Release();
 
         if( validObjectsBuffer != null) validObjectsBuffer.Release();
         if( settingsBuffer != null) settingsBuffer.Release();
