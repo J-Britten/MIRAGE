@@ -11,7 +11,7 @@ Anonymized
 ## Setup
 ### 1. Unity 
 1. Clone this repository
-2. Download and install [Unity](https://unity.com/download) version `6000.1.7f1`
+2. Download and install [Unity](https://unity.com/download) version `6000.2.2f1`
 3. Open the `MIRAGE Unity` Project.
 
 ### 2. Preparing Computational Models
@@ -136,7 +136,7 @@ We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Setti
 ### PostProcessor (GPU)
 - Script that executes a shader which adds something to the image.
 - Requires the segmentation mask 
-- See the `ColoredMaskSegmentationShader.compute` for a simple example
+- Refer to the `ColoredMaskSegmentationShader.compute` for a simple example
 
 ### ImagePostProcessor (GPU)
 - Script that executes a shader which manipulates the input image using the segmentation output
@@ -157,24 +157,41 @@ We use Unity Inference Engine (formerly Unity Sentis) to execute `ONNX` models i
 Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipeline executes models.
 
 ### Exporting to ONNX
-1. Find a model you would want to use and export it to `ONNX`. 
+1. Find a model you would like to use and export it to `ONNX`. 
     -   This process highly depends on the model and its implementation. 
     -   Not all `ONNX` models are [compatible](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/manual/supported-operators.html)
-    - Note: We won't assist in exporting models to ONNX. Please refer to the developers of the models.
+    - Note: We can't assist in exporting models to ONNX. Please refer to the developers of the models.
 2. Add the model to Unity. If no errors are thrown, the model is most likely compatible.
 3. Write down the input and output tensors
 
 ### Creating a ModelRunner script
 1. Inherit from `ModelRunner.cs` (or `InpaintingRunner`, `DepthEstimationRunner`, or `SegmentationRunner` if your model fulfills one of these tasks)
 2. Implement the abstract methods. 
-    - Look at the `YOLORunner`, `MIGANRunner`, or `DepthAnythingRunner` for inspiration
+    - Use `YOLORunner`, `MIGANRunner`, or `DepthAnythingRunner` for inspiration
 3. Create a new scene, add the model and a `ModelExecutor` to it
     - Alternatively duplicate a scene in `Scenes/Models/` and replace the model
     - Take a look at these scenes for inspiration
 4. Set the parameters for your model
 5. Run the model
-
 6. Currently, models can't be dynamically added to the pipeline. If you aim to add an additional model to the pipeline (instead of replacing another), the `Pipeline.cs` script has to be modified by hand.
+
+
+## Benchmarking
+This section covers benchmark results along with instructions on how to conduct benchmark tests.
+
+### Results
+We report the min, max, avg, and sd values for the pipeline's models. We also report the total iteration time.
+Note that since the models run independently in the `parallel` pipeline mode, there is no shared total iteration time. The value instead represents the sum of the iteration times for each model.
+
+
+### How to Benchmark
+1. Open one of the existing Benchmark scenes.
+2. These scenes are pre-configured with postprocessing effects that ensure all components of the pipeline are used (models, shaders, cpu effects)
+3. Assign the models as described in the [Preparing a Scene](#preparing-a-scene) section. 
+4. Adjust the BenchmarkManager Script in the Inspector accordingly. By default, a 60 second benchmark will begin on launch.
+5. Use the `Benchmark Controller` window via the `MIRAGE` menu item to control the benchmark manually.
+6. The results of the benchmark will be reported in the console.
+
 
 ## References
 
