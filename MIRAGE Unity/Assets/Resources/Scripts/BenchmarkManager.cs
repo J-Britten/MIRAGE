@@ -28,7 +28,9 @@ public interface IBenchmarkManager
     void StartPostProcessing();
     void EndPostProcessing();
     void PrintBenchmarkResults();
+    void PrintBenchmarkResultsCSV();
     void PrintDetailedBenchmarkData();
+    void PrintDetailedBenchmarkDataCSV();
     BenchmarkManager.BenchmarkData[] GetBenchmarkResults();
     
     // Parallel mode support
@@ -68,7 +70,9 @@ public class NullBenchmarkManager : IBenchmarkManager
     public void StartPostProcessing() { }
     public void EndPostProcessing() { }
     public void PrintBenchmarkResults() { }
+    public void PrintBenchmarkResultsCSV() { }
     public void PrintDetailedBenchmarkData() { }
+    public void PrintDetailedBenchmarkDataCSV() { }
     public BenchmarkManager.BenchmarkData[] GetBenchmarkResults() => new BenchmarkManager.BenchmarkData[0];
     
     // Auto-start functionality (null implementations)
@@ -544,6 +548,110 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         report.AppendLine("=========================");
 
         Debug.Log(report.ToString());
+        
+        // Also print CSV format for easy copy-paste
+        PrintBenchmarkResultsCSV();
+    }
+
+    /// <summary>
+    /// Print benchmark results in CSV format with semicolon separators for easy copy-paste
+    /// </summary>
+    public void PrintBenchmarkResultsCSV()
+    {
+        if (benchmarkResults.Count == 0)
+        {
+            Debug.Log("No benchmark data available for CSV export.");
+            return;
+        }
+
+        float totalDuration = Time.realtimeSinceStartup - benchmarkStartTime;
+        int count = benchmarkResults.Count;
+
+        // Calculate statistics for each metric
+        var segStats = CalculateStatistics(benchmarkResults, d => d.segmentationTime);
+        var depthStats = CalculateStatistics(benchmarkResults, d => d.depthEstimationTime);
+        var inpaintStats = CalculateStatistics(benchmarkResults, d => d.inpaintingTime);
+        var postProcStats = CalculateStatistics(benchmarkResults, d => d.postProcessingTime);
+        var iterationStats = CalculateStatistics(benchmarkResults, d => d.totalIterationTime);
+        var fpsStats = CalculateStatistics(benchmarkResults, d => d.unityFPS);
+
+        // Count how many times each stage ran
+        int segmentationCount = 0, depthCount = 0, inpaintingCount = 0, postProcessingCount = 0;
+        foreach (var data in benchmarkResults)
+        {
+            if (data.segmentationExecuted) segmentationCount++;
+            if (data.depthEstimationExecuted) depthCount++;
+            if (data.inpaintingExecuted) inpaintingCount++;
+            if (data.postProcessingExecuted) postProcessingCount++;
+        }
+
+        System.Text.StringBuilder csvReport = new System.Text.StringBuilder();
+        csvReport.AppendLine("\n=== BENCHMARK RESULTS CSV FORMAT ===");
+        csvReport.AppendLine("Copy the lines below and paste into a spreadsheet:");
+        csvReport.AppendLine();
+        
+        // Summary data in CSV format
+        csvReport.AppendLine("Metric;Value;Unit");
+        csvReport.AppendLine($"Total Duration;{totalDuration:F2};seconds");
+        csvReport.AppendLine($"Total Iterations;{count};count");
+        csvReport.AppendLine($"Average Pipeline FPS;{1.0f / iterationStats.average:F2};fps");
+        csvReport.AppendLine();
+        
+        // Stage statistics in CSV format
+        csvReport.AppendLine("Stage;Execution Count;Execution Percentage;Avg Time (s);Min Time (s);Max Time (s);Std Dev (s);Avg FPS;Min FPS;Max FPS");
+        
+        // Helper function to safely calculate FPS
+        System.Func<float, string> SafeFPS = (time) => time > 0f ? $"{1.0f / time:F1}" : "N/A";
+        
+        if (segStats.average > 0f)
+        {
+            csvReport.AppendLine($"Segmentation;{segmentationCount};{100f * segmentationCount / count:F1}%;{segStats.average:F4};{segStats.min:F4};{segStats.max:F4};{segStats.stdDev:F4};{SafeFPS(segStats.average)};{SafeFPS(segStats.max)};{SafeFPS(segStats.min)}");
+        }
+        else
+        {
+            csvReport.AppendLine("Segmentation;0;0%;0;0;0;0;N/A;N/A;N/A");
+        }
+        
+        if (depthStats.average > 0f)
+        {
+            csvReport.AppendLine($"Depth Estimation;{depthCount};{100f * depthCount / count:F1}%;{depthStats.average:F4};{depthStats.min:F4};{depthStats.max:F4};{depthStats.stdDev:F4};{SafeFPS(depthStats.average)};{SafeFPS(depthStats.max)};{SafeFPS(depthStats.min)}");
+        }
+        else
+        {
+            csvReport.AppendLine("Depth Estimation;0;0%;0;0;0;0;N/A;N/A;N/A");
+        }
+        
+        if (inpaintStats.average > 0f)
+        {
+            csvReport.AppendLine($"Inpainting;{inpaintingCount};{100f * inpaintingCount / count:F1}%;{inpaintStats.average:F4};{inpaintStats.min:F4};{inpaintStats.max:F4};{inpaintStats.stdDev:F4};{SafeFPS(inpaintStats.average)};{SafeFPS(inpaintStats.max)};{SafeFPS(inpaintStats.min)}");
+        }
+        else
+        {
+            csvReport.AppendLine("Inpainting;0;0%;0;0;0;0;N/A;N/A;N/A");
+        }
+        
+        if (postProcStats.average > 0f)
+        {
+            csvReport.AppendLine($"Post-Processing;{postProcessingCount};{100f * postProcessingCount / count:F1}%;{postProcStats.average:F4};{postProcStats.min:F4};{postProcStats.max:F4};{postProcStats.stdDev:F4};{SafeFPS(postProcStats.average)};{SafeFPS(postProcStats.max)};{SafeFPS(postProcStats.min)}");
+        }
+        else
+        {
+            csvReport.AppendLine("Post-Processing;0;0%;0;0;0;0;N/A;N/A;N/A");
+        }
+        
+        csvReport.AppendLine($"Total Iteration;{count};100%;{iterationStats.average:F4};{iterationStats.min:F4};{iterationStats.max:F4};{iterationStats.stdDev:F4};{1.0f / iterationStats.average:F1};{1.0f / iterationStats.max:F1};{1.0f / iterationStats.min:F1}");
+        csvReport.AppendLine();
+        
+        // Unity FPS statistics
+        csvReport.AppendLine("Unity FPS Statistics;Value;Unit");
+        csvReport.AppendLine($"Average Unity FPS;{fpsStats.average:F2};fps");
+        csvReport.AppendLine($"Minimum Unity FPS;{fpsStats.min:F2};fps");
+        csvReport.AppendLine($"Maximum Unity FPS;{fpsStats.max:F2};fps");
+        csvReport.AppendLine($"Unity FPS Std Dev;{fpsStats.stdDev:F2};fps");
+        
+        csvReport.AppendLine("=====================================");
+
+        Debug.Log(csvReport.ToString());
     }
 
     private struct Statistics
@@ -663,6 +771,49 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
 
         report.AppendLine("=================================");
         Debug.Log(report.ToString());
+        
+        // Also print CSV format for detailed data
+        PrintDetailedBenchmarkDataCSV();
+    }
+
+    /// <summary>
+    /// Print detailed iteration-by-iteration data in CSV format for easy copy-paste
+    /// </summary>
+    public void PrintDetailedBenchmarkDataCSV()
+    {
+        if (benchmarkResults.Count == 0)
+        {
+            Debug.Log("No detailed benchmark data to display in CSV format.");
+            return;
+        }
+
+        System.Text.StringBuilder csvReport = new System.Text.StringBuilder();
+        csvReport.AppendLine("\n=== DETAILED BENCHMARK DATA CSV FORMAT ===");
+        csvReport.AppendLine("Copy the lines below and paste into a spreadsheet:");
+        csvReport.AppendLine();
+        
+        // CSV Header
+        csvReport.AppendLine("Frame;Timestamp (s);Segmentation (ms);Depth Estimation (ms);Inpainting (ms);Post-Processing (ms);Total Iteration (ms);Unity FPS;Segmentation Executed;Depth Executed;Inpainting Executed;PostProcessing Executed");
+
+        // CSV Data rows
+        for (int i = 0; i < benchmarkResults.Count; i++)
+        {
+            var data = benchmarkResults[i];
+            csvReport.AppendLine($"{data.frameCount};{data.timestamp:F2};" +
+                            $"{data.segmentationTime * 1000:F2};" +
+                            $"{data.depthEstimationTime * 1000:F2};" +
+                            $"{data.inpaintingTime * 1000:F2};" +
+                            $"{data.postProcessingTime * 1000:F2};" +
+                            $"{data.totalIterationTime * 1000:F2};" +
+                            $"{data.unityFPS:F2};" +
+                            $"{(data.segmentationExecuted ? "TRUE" : "FALSE")};" +
+                            $"{(data.depthEstimationExecuted ? "TRUE" : "FALSE")};" +
+                            $"{(data.inpaintingExecuted ? "TRUE" : "FALSE")};" +
+                            $"{(data.postProcessingExecuted ? "TRUE" : "FALSE")}");
+        }
+
+        csvReport.AppendLine("===============================================");
+        Debug.Log(csvReport.ToString());
     }
 
     /// <summary>

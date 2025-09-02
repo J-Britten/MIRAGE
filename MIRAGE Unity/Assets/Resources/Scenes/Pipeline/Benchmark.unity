@@ -861,6 +861,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5679560247574380171, guid: ab86f2914800cda49b5760ab0fbd7af5, type: 3}
+      propertyPath: IsEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5679560247574380171, guid: ab86f2914800cda49b5760ab0fbd7af5, type: 3}
       propertyPath: ImageWidth
       value: 1280
       objectReference: {fileID: 0}
@@ -1779,7 +1783,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BenchmarkManager
   _isBenchmarking: 0
-  _maxBenchmarkDuration: 10
+  _maxBenchmarkDuration: 60
   _autoStartEnabled: 1
   _autoStartDelay: 2
   _autoStartOnFirstIteration: 1
