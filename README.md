@@ -173,7 +173,7 @@ Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipe
     - Take a look at these scenes for inspiration
 4. Set the parameters for your model
 5. Run the model
-6. Currently, models can't be dynamically added to the pipeline. If you aim to add an additional model to the pipeline (instead of replacing another), the `Pipeline.cs` script has to be modified by hand.
+6. As models heavily rely on each other as part of the pipeline, the `Pipeline.cs` script has to be modified to incorporate another model.
 
 
 ## Benchmarking
@@ -181,7 +181,7 @@ This section covers benchmark results along with instructions on how to conduct 
 
 ### Results
 We report the min, max, avg, and sd values for the pipeline's models. We also report the total iteration time.
-Note that since the models run independently in the `parallel` pipeline mode, there is no shared total iteration time. The value instead represents the sum of the iteration times for each model.
+Note that since the models run independently in the `parallel` pipeline mode, there is no shared total iteration time.
 
 
 ### How to Benchmark
@@ -191,7 +191,7 @@ Note that since the models run independently in the `parallel` pipeline mode, th
 4. Adjust the BenchmarkManager Script in the Inspector accordingly. By default, a 60 second benchmark will begin on launch.
 5. Use the `Benchmark Controller` window via the `MIRAGE` menu item to control the benchmark manually.
 6. The results of the benchmark will be reported in the console.
-
+7. If enabled, the logging data will also be exported as `.csv` files. They can be found in the `MIRAGE Unity/BenchmarkExports/` directory.
 
 ## References
 

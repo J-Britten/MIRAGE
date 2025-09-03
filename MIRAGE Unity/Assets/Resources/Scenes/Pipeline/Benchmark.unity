@@ -1787,6 +1787,7 @@ MonoBehaviour:
   _autoStartEnabled: 1
   _autoStartDelay: 2
   _autoStartOnFirstIteration: 1
+  _csvExportEnabled: 1
 --- !u!114 &1862843691 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4875789114986273197, guid: b6d05cc60869cb74baa41bc16c6ddc11, type: 3}

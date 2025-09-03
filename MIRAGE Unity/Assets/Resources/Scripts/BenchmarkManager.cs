@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 /// <summary>
@@ -14,6 +15,7 @@ public interface IBenchmarkManager
     int IterationCount { get; }
     bool autoStartEnabled { get; }
     float autoStartDelay { get; }
+    bool csvExportEnabled { get; }
     
     void StartBenchmark(float duration = 60f);
     void StopBenchmark();
@@ -31,6 +33,7 @@ public interface IBenchmarkManager
     void PrintBenchmarkResultsCSV();
     void PrintDetailedBenchmarkData();
     void PrintDetailedBenchmarkDataCSV();
+    void ExportRawDataToCSV(string filePrefix = "benchmark");
     BenchmarkManager.BenchmarkData[] GetBenchmarkResults();
     
     // Parallel mode support
@@ -43,6 +46,7 @@ public interface IBenchmarkManager
     void SetAutoStartEnabled(bool enabled);
     void SetAutoStartDelay(float delay);
     void SetAutoStartOnFirstIteration(bool onFirstIteration);
+    void SetCSVExportEnabled(bool enabled);
 }
 
 /// <summary>
@@ -56,6 +60,7 @@ public class NullBenchmarkManager : IBenchmarkManager
     public int IterationCount => 0;
     public bool autoStartEnabled => false;
     public float autoStartDelay => 0f;
+    public bool csvExportEnabled => false;
     
     public void StartBenchmark(float duration = 60f) { }
     public void StopBenchmark() { }
@@ -73,6 +78,7 @@ public class NullBenchmarkManager : IBenchmarkManager
     public void PrintBenchmarkResultsCSV() { }
     public void PrintDetailedBenchmarkData() { }
     public void PrintDetailedBenchmarkDataCSV() { }
+    public void ExportRawDataToCSV(string filePrefix = "benchmark") { }
     public BenchmarkManager.BenchmarkData[] GetBenchmarkResults() => new BenchmarkManager.BenchmarkData[0];
     
     // Auto-start functionality (null implementations)
@@ -82,6 +88,7 @@ public class NullBenchmarkManager : IBenchmarkManager
     public void SetAutoStartEnabled(bool enabled) { }
     public void SetAutoStartDelay(float delay) { }
     public void SetAutoStartOnFirstIteration(bool onFirstIteration) { }
+    public void SetCSVExportEnabled(bool enabled) { }
     public void SetParallelMode(bool parallel) { }
 }
 
@@ -109,6 +116,11 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         public bool depthEstimationExecuted;
         public bool inpaintingExecuted;
         public bool postProcessingExecuted;
+        
+        // Model UpdateRate values at time of execution
+        public float segmentationUpdateRate;
+        public float depthUpdateRate;
+        public float inpaintingUpdateRate;
     }
 
     [Header("Benchmark Settings")]
@@ -120,11 +132,15 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     [SerializeField] private float _autoStartDelay = 2f; // Delay before auto-starting benchmark
     [SerializeField] private bool _autoStartOnFirstIteration = true; // Start benchmark when first iteration begins
     
+    [Header("Export Settings")]
+    [SerializeField] private bool _csvExportEnabled = true; // Enable/disable automatic CSV export
+    
     // Interface properties
     public bool isBenchmarking => _isBenchmarking;
     public float maxBenchmarkDuration => _maxBenchmarkDuration;
     public bool autoStartEnabled => _autoStartEnabled;
     public float autoStartDelay => _autoStartDelay;
+    public bool csvExportEnabled => _csvExportEnabled;
     
     private float benchmarkStartTime;
     private float lastIterationStartTime;
@@ -148,6 +164,12 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     private List<float> inpaintingTimesThisPeriod = new List<float>();
     private List<float> postProcessingTimesThisPeriod = new List<float>();
     
+    // Raw execution data for CSV export - stores individual execution times with timestamps
+    private List<(float timestamp, float executionTime)> rawSegmentationData = new List<(float, float)>();
+    private List<(float timestamp, float executionTime)> rawDepthData = new List<(float, float)>();
+    private List<(float timestamp, float executionTime)> rawInpaintingData = new List<(float, float)>();
+    private List<(float timestamp, float executionTime)> rawPostProcessingData = new List<(float, float)>();
+    
     // Timing data for current iteration
     private float segmentationStartTime;
     private float segmentationEndTime;
@@ -167,6 +189,11 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     // Events for Pipeline integration
     public event Action OnBenchmarkStarted;
     public event Action OnBenchmarkStopped;
+    
+    // Model references for UpdateRate tracking
+    private SegmentationRunner segmentationModel;
+    private DepthEstimationRunner depthModel;
+    private InpaintingRunner inpaintingModel;
     
     private static BenchmarkManager _instance;
     public static BenchmarkManager Instance
@@ -202,11 +229,24 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
 
     void Start()
     {
+        // Find model references for UpdateRate tracking
+        InitializeModelReferences();
+        
         // Start auto-start monitoring if enabled
         if (_autoStartEnabled && !_autoStartOnFirstIteration)
         {
             TriggerAutoStart();
         }
+    }
+    
+    /// <summary>
+    /// Initialize references to the pipeline models for UpdateRate tracking
+    /// </summary>
+    private void InitializeModelReferences()
+    {
+        segmentationModel = FindAnyObjectByType<SegmentationRunner>();
+        depthModel = FindAnyObjectByType<DepthEstimationRunner>();
+        inpaintingModel = FindAnyObjectByType<InpaintingRunner>();
     }
 
     void Update()
@@ -242,6 +282,12 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         benchmarkStartTime = Time.realtimeSinceStartup;
         frameCounter = 0;
         benchmarkResults.Clear();
+        
+        // Clear raw execution data for CSV export
+        rawSegmentationData.Clear();
+        rawDepthData.Clear();
+        rawInpaintingData.Clear();
+        rawPostProcessingData.Clear();
 
         Debug.Log($"Benchmark started for {duration} seconds.");
         OnBenchmarkStarted?.Invoke();
@@ -322,7 +368,11 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
             segmentationExecuted = segmentationRanThisIteration,
             depthEstimationExecuted = depthEstimationRanThisIteration,
             inpaintingExecuted = inpaintingRanThisIteration,
-            postProcessingExecuted = postProcessingRanThisIteration
+            postProcessingExecuted = postProcessingRanThisIteration,
+            // Capture current UpdateRate values
+            segmentationUpdateRate = GetSegmentationUpdateRate(),
+            depthUpdateRate = GetDepthUpdateRate(),
+            inpaintingUpdateRate = GetInpaintingUpdateRate()
         };
         
         benchmarkResults.Add(data);
@@ -348,6 +398,10 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         if (!_isBenchmarking) return;
         segmentationEndTime = Time.realtimeSinceStartup;
         float duration = segmentationEndTime - segmentationStartTime;
+        float relativeTimestamp = segmentationEndTime - benchmarkStartTime;
+        
+        // Store raw execution data for CSV export
+        rawSegmentationData.Add((relativeTimestamp, duration));
         
         if (isParallelMode) 
         {
@@ -374,6 +428,10 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         if (!_isBenchmarking) return;
         depthEndTime = Time.realtimeSinceStartup;
         float duration = depthEndTime - depthStartTime;
+        float relativeTimestamp = depthEndTime - benchmarkStartTime;
+        
+        // Store raw execution data for CSV export
+        rawDepthData.Add((relativeTimestamp, duration));
         
         if (isParallelMode) 
         {
@@ -400,6 +458,10 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         if (!_isBenchmarking) return;
         inpaintingEndTime = Time.realtimeSinceStartup;
         float duration = inpaintingEndTime - inpaintingStartTime;
+        float relativeTimestamp = inpaintingEndTime - benchmarkStartTime;
+        
+        // Store raw execution data for CSV export
+        rawInpaintingData.Add((relativeTimestamp, duration));
         
         if (isParallelMode) 
         {
@@ -426,6 +488,10 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         if (!_isBenchmarking) return;
         postProcessingEndTime = Time.realtimeSinceStartup;
         float duration = postProcessingEndTime - postProcessingStartTime;
+        float relativeTimestamp = postProcessingEndTime - benchmarkStartTime;
+        
+        // Store raw execution data for CSV export
+        rawPostProcessingData.Add((relativeTimestamp, duration));
         
         if (isParallelMode) 
         {
@@ -551,6 +617,12 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         
         // Also print CSV format for easy copy-paste
         PrintBenchmarkResultsCSV();
+        
+        // Export raw data to CSV files if enabled
+        if (_csvExportEnabled)
+        {
+            ExportRawDataToCSV();
+        }
     }
 
     /// <summary>
@@ -734,6 +806,59 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     {
         ReportBenchmarkResults();
     }
+    
+    // Public method to manually export raw data to CSV files
+    public void ExportBenchmarkDataToCSV(string customPrefix = null)
+    {
+        string prefix = string.IsNullOrEmpty(customPrefix) ? "benchmark_manual" : customPrefix;
+        ExportRawDataToCSV(prefix);
+    }
+    
+    /// <summary>
+    /// Enable or disable automatic CSV export
+    /// </summary>
+    public void SetCSVExportEnabled(bool enabled)
+    {
+        _csvExportEnabled = enabled;
+        Debug.Log($"CSV export {(enabled ? "enabled" : "disabled")}");
+    }
+    
+    /// <summary>
+    /// Get statistics about raw execution data for debugging
+    /// </summary>
+    public void PrintRawDataStatistics()
+    {
+        Debug.Log($"Raw Data Statistics:");
+        Debug.Log($"  Segmentation executions: {rawSegmentationData.Count}");
+        Debug.Log($"  Depth estimation executions: {rawDepthData.Count}");
+        Debug.Log($"  Inpainting executions: {rawInpaintingData.Count}");
+        Debug.Log($"  Post-processing executions: {rawPostProcessingData.Count}");
+        Debug.Log($"  Total benchmark iterations: {benchmarkResults.Count}");
+    }
+    
+    /// <summary>
+    /// Get the current UpdateRate for the segmentation model
+    /// </summary>
+    private float GetSegmentationUpdateRate()
+    {
+        return segmentationModel != null ? segmentationModel.UpdateRate : 0f;
+    }
+    
+    /// <summary>
+    /// Get the current UpdateRate for the depth estimation model
+    /// </summary>
+    private float GetDepthUpdateRate()
+    {
+        return depthModel != null ? depthModel.UpdateRate : 0f;
+    }
+    
+    /// <summary>
+    /// Get the current UpdateRate for the inpainting model
+    /// </summary>
+    private float GetInpaintingUpdateRate()
+    {
+        return inpaintingModel != null ? inpaintingModel.UpdateRate : 0f;
+    }
 
     /// <summary>
     /// Print detailed iteration-by-iteration data for debugging
@@ -793,7 +918,7 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         csvReport.AppendLine();
         
         // CSV Header
-        csvReport.AppendLine("Frame;Timestamp (s);Segmentation (ms);Depth Estimation (ms);Inpainting (ms);Post-Processing (ms);Total Iteration (ms);Unity FPS;Segmentation Executed;Depth Executed;Inpainting Executed;PostProcessing Executed");
+        csvReport.AppendLine("Frame;Timestamp (s);Segmentation (ms);Depth Estimation (ms);Inpainting (ms);Post-Processing (ms);Total Iteration (ms);Unity FPS;Segmentation Executed;Depth Executed;Inpainting Executed;PostProcessing Executed;Segmentation UpdateRate;Depth UpdateRate;Inpainting UpdateRate");
 
         // CSV Data rows
         for (int i = 0; i < benchmarkResults.Count; i++)
@@ -809,11 +934,197 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
                             $"{(data.segmentationExecuted ? "TRUE" : "FALSE")};" +
                             $"{(data.depthEstimationExecuted ? "TRUE" : "FALSE")};" +
                             $"{(data.inpaintingExecuted ? "TRUE" : "FALSE")};" +
-                            $"{(data.postProcessingExecuted ? "TRUE" : "FALSE")}");
+                            $"{(data.postProcessingExecuted ? "TRUE" : "FALSE")};" +
+                            $"{data.segmentationUpdateRate:F3};" +
+                            $"{data.depthUpdateRate:F3};" +
+                            $"{data.inpaintingUpdateRate:F3}");
         }
 
         csvReport.AppendLine("===============================================");
         Debug.Log(csvReport.ToString());
+    }
+
+    /// <summary>
+    /// Export raw timing data to separate CSV files for each stage/model.
+    /// In parallel mode, each stage gets its own file since they don't have synchronized timestamps.
+    /// Creates the following files:
+    /// - {prefix}_complete.csv: All benchmark data with frame-based synchronization
+    /// - {prefix}_segmentation.csv: Raw segmentation execution times
+    /// - {prefix}_depth.csv: Raw depth estimation execution times  
+    /// - {prefix}_inpainting.csv: Raw inpainting execution times
+    /// - {prefix}_postprocessing.csv: Raw post-processing execution times
+    /// 
+    /// The individual stage files contain the actual execution timestamps and are suitable 
+    /// for parallel mode analysis where stages may execute independently.
+    /// </summary>
+    /// <param name="filePrefix">Prefix for the CSV file names</param>
+    public void ExportRawDataToCSV(string filePrefix = "benchmark")
+    {
+        if (benchmarkResults.Count == 0)
+        {
+            Debug.LogWarning("No benchmark data available for CSV export.");
+            return;
+        }
+
+        string timestamp = System.DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        string baseFileName = $"{filePrefix}_{timestamp}";
+        
+        // Create a directory for benchmark exports relative to the project root (not inside Assets)
+        string projectPath = Application.dataPath.Replace("/Assets", ""); // Get project root
+        string exportPath = Path.Combine(projectPath, "BenchmarkExports");
+        if (!Directory.Exists(exportPath))
+        {
+            Directory.CreateDirectory(exportPath);
+        }
+
+        try
+        {
+            // Export complete benchmark data (all stages in one file)
+            ExportCompleteDataToCSV(exportPath, baseFileName);
+            
+            // Export individual stage data (separate files for each stage)
+            ExportSegmentationDataToCSV(exportPath, baseFileName);
+            ExportDepthEstimationDataToCSV(exportPath, baseFileName);
+            ExportInpaintingDataToCSV(exportPath, baseFileName);
+            ExportPostProcessingDataToCSV(exportPath, baseFileName);
+            
+            Debug.Log($"Raw benchmark data exported to: {exportPath}");
+            Debug.Log($"Files created with prefix: {baseFileName}");
+            
+            // Log the exact file paths for easy access
+            Debug.Log($"Complete data: {Path.Combine(exportPath, baseFileName + "_complete.csv")}");
+            Debug.Log($"Segmentation: {Path.Combine(exportPath, baseFileName + "_segmentation.csv")}");
+            Debug.Log($"Depth Estimation: {Path.Combine(exportPath, baseFileName + "_depth.csv")}");
+            Debug.Log($"Inpainting: {Path.Combine(exportPath, baseFileName + "_inpainting.csv")}");
+            Debug.Log($"Post-Processing: {Path.Combine(exportPath, baseFileName + "_postprocessing.csv")}");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Failed to export CSV data: {ex.Message}");
+        }
+    }
+
+    private void ExportCompleteDataToCSV(string exportPath, string baseFileName)
+    {
+        string filePath = Path.Combine(exportPath, baseFileName + "_complete.csv");
+        
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            // Write header
+            writer.WriteLine("Frame,Timestamp_s,Segmentation_ms,DepthEstimation_ms,Inpainting_ms,PostProcessing_ms,TotalIteration_ms,UnityFPS,SegmentationExecuted,DepthExecuted,InpaintingExecuted,PostProcessingExecuted,SegmentationUpdateRate,DepthUpdateRate,InpaintingUpdateRate");
+            
+            // Write data rows
+            foreach (var data in benchmarkResults)
+            {
+                writer.WriteLine($"{data.frameCount}," +
+                               $"{data.timestamp:F4}," +
+                               $"{data.segmentationTime * 1000:F4}," +
+                               $"{data.depthEstimationTime * 1000:F4}," +
+                               $"{data.inpaintingTime * 1000:F4}," +
+                               $"{data.postProcessingTime * 1000:F4}," +
+                               $"{data.totalIterationTime * 1000:F4}," +
+                               $"{data.unityFPS:F2}," +
+                               $"{data.segmentationExecuted}," +
+                               $"{data.depthEstimationExecuted}," +
+                               $"{data.inpaintingExecuted}," +
+                               $"{data.postProcessingExecuted}," +
+                               $"{data.segmentationUpdateRate:F3}," +
+                               $"{data.depthUpdateRate:F3}," +
+                               $"{data.inpaintingUpdateRate:F3}");
+            }
+        }
+    }
+
+    private void ExportSegmentationDataToCSV(string exportPath, string baseFileName)
+    {
+        string filePath = Path.Combine(exportPath, baseFileName + "_segmentation.csv");
+        
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            // Write header
+            writer.WriteLine("ExecutionIndex,Timestamp_s,ExecutionTime_ms,FPS");
+            
+            int executionIndex = 0;
+            // Use raw execution data for more accurate results
+            foreach (var execution in rawSegmentationData)
+            {
+                executionIndex++;
+                float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
+                writer.WriteLine($"{executionIndex}," +
+                               $"{execution.timestamp:F4}," +
+                               $"{execution.executionTime * 1000:F4}," +
+                               $"{fps:F2}");
+            }
+        }
+    }
+
+    private void ExportDepthEstimationDataToCSV(string exportPath, string baseFileName)
+    {
+        string filePath = Path.Combine(exportPath, baseFileName + "_depth.csv");
+        
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            // Write header
+            writer.WriteLine("ExecutionIndex,Timestamp_s,ExecutionTime_ms,FPS");
+            
+            int executionIndex = 0;
+            // Use raw execution data for more accurate results
+            foreach (var execution in rawDepthData)
+            {
+                executionIndex++;
+                float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
+                writer.WriteLine($"{executionIndex}," +
+                               $"{execution.timestamp:F4}," +
+                               $"{execution.executionTime * 1000:F4}," +
+                               $"{fps:F2}");
+            }
+        }
+    }
+
+    private void ExportInpaintingDataToCSV(string exportPath, string baseFileName)
+    {
+        string filePath = Path.Combine(exportPath, baseFileName + "_inpainting.csv");
+        
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            // Write header
+            writer.WriteLine("ExecutionIndex,Timestamp_s,ExecutionTime_ms,FPS");
+            
+            int executionIndex = 0;
+            // Use raw execution data for more accurate results
+            foreach (var execution in rawInpaintingData)
+            {
+                executionIndex++;
+                float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
+                writer.WriteLine($"{executionIndex}," +
+                               $"{execution.timestamp:F4}," +
+                               $"{execution.executionTime * 1000:F4}," +
+                               $"{fps:F2}");
+            }
+        }
+    }
+
+    private void ExportPostProcessingDataToCSV(string exportPath, string baseFileName)
+    {
+        string filePath = Path.Combine(exportPath, baseFileName + "_postprocessing.csv");
+        
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            // Write header
+            writer.WriteLine("ExecutionIndex,Timestamp_s,ExecutionTime_ms,FPS");
+            
+            int executionIndex = 0;
+            // Use raw execution data for more accurate results
+            foreach (var execution in rawPostProcessingData)
+            {
+                executionIndex++;
+                float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
+                writer.WriteLine($"{executionIndex}," +
+                               $"{execution.timestamp:F4}," +
+                               $"{execution.executionTime * 1000:F4}," +
+                               $"{fps:F2}");
+            }
+        }
     }
 
     /// <summary>
@@ -831,6 +1142,12 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
             inpaintingTimesThisPeriod.Clear();
             postProcessingTimesThisPeriod.Clear();
         }
+        
+        // Clear raw execution data when switching modes
+        rawSegmentationData.Clear();
+        rawDepthData.Clear();
+        rawInpaintingData.Clear();
+        rawPostProcessingData.Clear();
     }
     
     /// <summary>
@@ -869,7 +1186,11 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
             segmentationExecuted = segmentationTimesThisPeriod.Count > 0,
             depthEstimationExecuted = depthTimesThisPeriod.Count > 0,
             inpaintingExecuted = inpaintingTimesThisPeriod.Count > 0,
-            postProcessingExecuted = postProcessingTimesThisPeriod.Count > 0
+            postProcessingExecuted = postProcessingTimesThisPeriod.Count > 0,
+            // Capture current UpdateRate values
+            segmentationUpdateRate = GetSegmentationUpdateRate(),
+            depthUpdateRate = GetDepthUpdateRate(),
+            inpaintingUpdateRate = GetInpaintingUpdateRate()
         };
         
         benchmarkResults.Add(data);
