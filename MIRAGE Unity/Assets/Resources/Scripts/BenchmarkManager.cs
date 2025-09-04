@@ -857,6 +857,18 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     {
         return inpaintingModel != null ? inpaintingModel.UpdateRate : 0f;
     }
+    
+    /// <summary>
+    /// Get system hardware specifications for CSV export
+    /// </summary>
+    private (string cpu, string gpu, string ram) GetHardwareSpecs()
+    {
+        string cpu = SystemInfo.processorType;
+        string gpu = SystemInfo.graphicsDeviceName;
+        string ram = $"{SystemInfo.systemMemorySize}MB";
+        
+        return (cpu, gpu, ram);
+    }
 
     /// <summary>
     /// Print detailed iteration-by-iteration data for debugging
@@ -1006,10 +1018,22 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
     {
         string filePath = Path.Combine(exportPath, baseFileName + "_complete.csv");
         
+        // Get hardware specifications
+        var (cpu, gpu, ram) = GetHardwareSpecs();
+        
         using (StreamWriter writer = new StreamWriter(filePath))
         {
-            // Write header
-            writer.WriteLine("Frame,Timestamp_s,Segmentation_ms,DepthEstimation_ms,Inpainting_ms,PostProcessing_ms,TotalIteration_ms,UnityFPS,SegmentationExecuted,DepthExecuted,InpaintingExecuted,PostProcessingExecuted,SegmentationUpdateRate,DepthUpdateRate,InpaintingUpdateRate");
+            // Write hardware specifications as metadata comments at the top
+            writer.WriteLine($"# Hardware Specifications");
+            writer.WriteLine($"# CPU: {cpu}");
+            writer.WriteLine($"# GPU: {gpu}");
+            writer.WriteLine($"# RAM: {ram}");
+            writer.WriteLine($"# Unity Version: {Application.unityVersion}");
+            writer.WriteLine($"# Export Date: {System.DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            writer.WriteLine("#");
+            
+            // Write header with hardware specification columns
+            writer.WriteLine("Frame,Timestamp_s,Segmentation_ms,DepthEstimation_ms,Inpainting_ms,PostProcessing_ms,TotalIteration_ms,UnityFPS,SegmentationExecuted,DepthExecuted,InpaintingExecuted,PostProcessingExecuted,SegmentationUpdateRate,DepthUpdateRate,InpaintingUpdateRate,CPU,GPU,RAM_MB");
             
             // Write data rows
             foreach (var data in benchmarkResults)
@@ -1028,7 +1052,10 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
                                $"{data.postProcessingExecuted}," +
                                $"{data.segmentationUpdateRate:F3}," +
                                $"{data.depthUpdateRate:F3}," +
-                               $"{data.inpaintingUpdateRate:F3}");
+                               $"{data.inpaintingUpdateRate:F3}," +
+                               $"\"{cpu}\"," +
+                               $"\"{gpu}\"," +
+                               $"{SystemInfo.systemMemorySize}");
             }
         }
     }

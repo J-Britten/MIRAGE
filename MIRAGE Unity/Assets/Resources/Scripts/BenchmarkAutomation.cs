@@ -19,6 +19,7 @@ public class BenchmarkAutomation : MonoBehaviour
     
     [Header("Shared Settings")]
     [SerializeField] private float benchmarkDuration = 60f;
+    [SerializeField] private bool useVideoLength = false; // If true, benchmark duration will be the video length
     [SerializeField] private float videoSetupDelay = 2f;
     [SerializeField] private float delayBetweenVideos = 3f;
     [SerializeField] private bool autoStartOnPlay = true;
@@ -183,12 +184,13 @@ public class BenchmarkAutomation : MonoBehaviour
                 
                 if (currentBenchmarkManager != null)
                 {
-                    Debug.Log($"Starting benchmark for video {currentVideoName}, repetition {rep + 1}/{repetitionsPerVideo} (Duration: {benchmarkDuration}s)");
+                    float actualBenchmarkDuration = GetBenchmarkDuration(videoClip);
+                    Debug.Log($"Starting benchmark for video {currentVideoName}, repetition {rep + 1}/{repetitionsPerVideo} (Duration: {actualBenchmarkDuration:F2}s)");
                     
                     // Subscribe to benchmark completion - the event will continue the sequence
                     SubscribeToBenchmarkEvents();
                     
-                    currentBenchmarkManager.StartBenchmark(benchmarkDuration);
+                    currentBenchmarkManager.StartBenchmark(actualBenchmarkDuration);
                     
                     // Exit coroutine here - OnBenchmarkCompleted will continue the sequence
                     yield break;
@@ -313,6 +315,26 @@ public class BenchmarkAutomation : MonoBehaviour
     }
     
     /// <summary>
+    /// Get the benchmark duration for the current video
+    /// </summary>
+    private float GetBenchmarkDuration(VideoClip videoClip)
+    {
+        if (useVideoLength && videoClip != null)
+        {
+            // Use video length as benchmark duration
+            float videoDuration = (float)videoClip.length;
+            Debug.Log($"Using video length as benchmark duration: {videoDuration:F2}s for video: {videoClip.name}");
+            return videoDuration;
+        }
+        else
+        {
+            // Use fixed benchmark duration
+            Debug.Log($"Using fixed benchmark duration: {benchmarkDuration:F2}s");
+            return benchmarkDuration;
+        }
+    }
+    
+    /// <summary>
     /// Subscribe to benchmark manager events
     /// </summary>
     private void SubscribeToBenchmarkEvents()
@@ -426,12 +448,13 @@ public class BenchmarkAutomation : MonoBehaviour
         
         if (currentBenchmarkManager != null)
         {
-            Debug.Log($"Starting benchmark for video {currentVideoName}, repetition {currentRepetition + 1}/{repetitionsPerVideo} (Duration: {benchmarkDuration}s)");
+            float actualBenchmarkDuration = GetBenchmarkDuration(videoClip);
+            Debug.Log($"Starting benchmark for video {currentVideoName}, repetition {currentRepetition + 1}/{repetitionsPerVideo} (Duration: {actualBenchmarkDuration:F2}s)");
             
             // Subscribe to benchmark completion - the event will continue the sequence
             SubscribeToBenchmarkEvents();
             
-            currentBenchmarkManager.StartBenchmark(benchmarkDuration);
+            currentBenchmarkManager.StartBenchmark(actualBenchmarkDuration);
         }
         else
         {
@@ -484,12 +507,13 @@ public class BenchmarkAutomation : MonoBehaviour
         if (currentBenchmarkManager != null)
         {
             // Start the benchmark
-            Debug.Log($"Starting benchmark for video {currentVideoName}, repetition 1/{repetitionsPerVideo} (Duration: {benchmarkDuration}s)");
+            float actualBenchmarkDuration = GetBenchmarkDuration(videoClip);
+            Debug.Log($"Starting benchmark for video {currentVideoName}, repetition 1/{repetitionsPerVideo} (Duration: {actualBenchmarkDuration:F2}s)");
             
             // Subscribe to benchmark completion
             SubscribeToBenchmarkEvents();
             
-            currentBenchmarkManager.StartBenchmark(benchmarkDuration);
+            currentBenchmarkManager.StartBenchmark(actualBenchmarkDuration);
         }
         else
         {
@@ -513,16 +537,29 @@ public class BenchmarkAutomation : MonoBehaviour
     /// </summary>
     private IEnumerator CompleteAutomationAsync()
     {
-        // Return to automation scene if requested
+        // Return to automation scene if requested, otherwise stop the application
         if (returnToAutomationScene && !string.IsNullOrEmpty(automationSceneName))
         {
             Debug.Log($"Returning to automation scene: {automationSceneName}");
             yield return LoadSceneAsync(automationSceneName);
         }
+        else
+        {
+            Debug.Log("Benchmark automation completed! Stopping application...");
+            
+            // Wait a brief moment to ensure the log message is written
+            yield return new WaitForSeconds(1f);
+            
+            // Stop the application
+            #if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+            #else
+                Application.Quit();
+            #endif
+        }
         
         // Complete automation
         isRunning = false;
-
         automationCoroutine = null;
         
         Debug.Log("Benchmark automation completed!");

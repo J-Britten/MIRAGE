@@ -164,15 +164,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BenchmarkAutomation
   videoClips:
-  - {fileID: 32900000, guid: 02dddbdba43924688a966435b7467fad, type: 3}
-  - {fileID: 32900000, guid: 116311396f70e4bbea297484714dea73, type: 3}
-  benchmarkSceneName: Desktop Benchmark
-  repetitionsPerVideo: 2
+  - {fileID: 32900000, guid: cee2663f75b90a54fa779bfee0617fd0, type: 3}
+  - {fileID: 32900000, guid: 0b731924de1951d419b2a6d8ef9fdaee, type: 3}
+  benchmarkSceneName: VR Benchmark
+  repetitionsPerVideo: 1
   benchmarkDuration: 10
+  useVideoLength: 1
   videoSetupDelay: 2
   delayBetweenVideos: 3
   autoStartOnPlay: 1
-  returnToAutomationScene: 1
+  returnToAutomationScene: 0
   automationSceneName: BenchmarkAutomation
   isRunning: 0
   currentVideoIndex: -1
