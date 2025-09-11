@@ -1,9 +1,8 @@
 # MIRAGE: Enabling Real-Time Automotive Mediated Reality
 
-Mediated Reality (MR) concepts have applications for all SAE levels. However, due to technical hurdles, these concepts are often never evaluated in real vehicles on the real road. We present MIRAGE, a first approach aimed at simplifying the task of evaluating MR
-visualization concepts in-vehicle. We implemented nine visualization concepts covering the entire MR spectrum, from diminished reality (DR) to augmented reality (AR). MIRAGE uses state-of-the-art computational models for detection and segmentation, depth estimation, and inpainting to enable the selective application of MR concepts in real-time, achieving up to 34 FPS on an RTX 4080 Super. We evaluated MIRAGE in an expert user study (N=9). Participants
-enjoyed the experience while pointing out technical limitations and identifying use cases and additional parameters relevant to MR. We discuss these results in context with related work and give an outlook on implications for MR regarding ethics and interaction
-concepts.
+Traffic is inherently dangerous, with millions of fatalities every year. Automotive Mediated Reality (AMR) can enhance driving safety by overlaying critical information (e.g., outlines, icons, text) on key objects to improve awareness, altering objects' appearance to simplify traffic situations, and diminishing their appearance to minimize distractions. However, real-world AMR evaluation remains limited due to technical challenges.
+To fill this _sim-to-real_ gap, we present `MIRAGE`, an open-source tool that enables real-time AMR in real vehicles. `MIRAGE` implements 15 effects across the AMR spectrum of augmented, diminished, and modified reality using state-of-the-art computational models for object detection and segmentation, depth estimation, and inpainting.
+In an on-road expert user study (N=9) of `MIRAGE`, participants enjoyed the AMR experience while pointing out technical limitations and identifying use cases for AMR. We discuss these results in the context of related work and outline implications for AMR ethics and interaction design.
 
 ## Authors
 Anonymized
@@ -176,12 +175,22 @@ Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipe
 6. As models heavily rely on each other as part of the pipeline, the `Pipeline.cs` script has to be modified to incorporate another model.
 
 
-## Benchmarking
+## Benchmarks
 This section covers benchmark results along with instructions on how to conduct benchmark tests.
 
 ### Results
-We report the min, max, avg, and sd values for the pipeline's models. We also report the total iteration time.
+| Hardware                                                                       | Segmentation ms                     | Inpainting ms                       | Depth Estimation ms                 | Post Processing ms               | Unity FPS                          |
+|--------------------------------------------------------------------------------|-------------------------------------|-------------------------------------|-------------------------------------|----------------------------------|------------------------------------|
+| 11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz : NVIDIA GeForce RTX 3080         | 133.66 ± 33.45 | 146.78 ± 35.07 | 148.48 ± 30.99 | 0.11 ± 0.12 | 20.77 ± 10.95 |
+| AMD Ryzen 5 9600X 6-Core Processor : NVIDIA GeForce RTX 4070 Ti SUPER           | 75.52 ± 20.19                       | 85.18 ± 19.78                       | 85.30 ± 19.64                       | 0.05 ± 0.12                      | 28.48 ± 9.59                       |
+| Intel(R) Core(TM) i7-14700F : NVIDIA GeForce RTX 4080 SUPER | 88.53 ± 25.38  | 105.43 ± 28.35 | 106.90 ± 25.37 | 0.07 ± 0.10 | 28.92 ± 14.28 |
+| Intel(R) Core(TM) i7-14700KF : NVIDIA GeForce RTX 4090                           | 72.39 ± 15.41                       | 86.41 ± 20.33                       | 87.37 ± 17.93                       | 0.04 ± 0.09                      | 28.43 ± 12.16                      |
+| Intel(R) Core(TM) i7-14700K : NVIDIA GeForce RTX 5080       | 57.50 ± 15.84  | 71.87 ± 23.75  | 72.23 ± 23.20  | 0.04 ± 0.09 | 38.89 ± 17.32 |
+
+
+
 Note that since the models run independently in the `parallel` pipeline mode, there is no shared total iteration time.
+Further, the Unity FPS solely refers to the updated content; passthrough capabilities run without interference at the headset's set frequency (90 Hz for the Varjo 3).
 
 
 ### How to Benchmark
@@ -192,6 +201,11 @@ Note that since the models run independently in the `parallel` pipeline mode, th
 5. Use the `Benchmark Controller` window via the `MIRAGE` menu item to control the benchmark manually.
 6. The results of the benchmark will be reported in the console.
 7. If enabled, the logging data will also be exported as `.csv` files. They can be found in the `MIRAGE Unity/BenchmarkExports/` directory.
+8. The `BenchmarkAutomation` can be used to automate the Benchmark process.
+
+## Citation
+
+anonymized
 
 ## References
 
