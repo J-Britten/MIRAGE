@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using UnityEngine;
 
@@ -662,20 +663,20 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         
         // Summary data in CSV format
         csvReport.AppendLine("Metric;Value;Unit");
-        csvReport.AppendLine($"Total Duration;{totalDuration:F2};seconds");
+        csvReport.AppendLine($"Total Duration;{totalDuration.ToString("F2", CultureInfo.InvariantCulture)};seconds");
         csvReport.AppendLine($"Total Iterations;{count};count");
-        csvReport.AppendLine($"Average Pipeline FPS;{1.0f / iterationStats.average:F2};fps");
+        csvReport.AppendLine($"Average Pipeline FPS;{(1.0f / iterationStats.average).ToString("F2", CultureInfo.InvariantCulture)};fps");
         csvReport.AppendLine();
         
         // Stage statistics in CSV format
         csvReport.AppendLine("Stage;Execution Count;Execution Percentage;Avg Time (s);Min Time (s);Max Time (s);Std Dev (s);Avg FPS;Min FPS;Max FPS");
         
         // Helper function to safely calculate FPS
-        System.Func<float, string> SafeFPS = (time) => time > 0f ? $"{1.0f / time:F1}" : "N/A";
+        System.Func<float, string> SafeFPS = (time) => time > 0f ? (1.0f / time).ToString("F1", CultureInfo.InvariantCulture) : "N/A";
         
         if (segStats.average > 0f)
         {
-            csvReport.AppendLine($"Segmentation;{segmentationCount};{100f * segmentationCount / count:F1}%;{segStats.average:F4};{segStats.min:F4};{segStats.max:F4};{segStats.stdDev:F4};{SafeFPS(segStats.average)};{SafeFPS(segStats.max)};{SafeFPS(segStats.min)}");
+            csvReport.AppendLine($"Segmentation;{segmentationCount};{(100f * segmentationCount / count).ToString("F1", CultureInfo.InvariantCulture)}%;{segStats.average.ToString("F4", CultureInfo.InvariantCulture)};{segStats.min.ToString("F4", CultureInfo.InvariantCulture)};{segStats.max.ToString("F4", CultureInfo.InvariantCulture)};{segStats.stdDev.ToString("F4", CultureInfo.InvariantCulture)};{SafeFPS(segStats.average)};{SafeFPS(segStats.max)};{SafeFPS(segStats.min)}");
         }
         else
         {
@@ -684,7 +685,7 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         
         if (depthStats.average > 0f)
         {
-            csvReport.AppendLine($"Depth Estimation;{depthCount};{100f * depthCount / count:F1}%;{depthStats.average:F4};{depthStats.min:F4};{depthStats.max:F4};{depthStats.stdDev:F4};{SafeFPS(depthStats.average)};{SafeFPS(depthStats.max)};{SafeFPS(depthStats.min)}");
+            csvReport.AppendLine($"Depth Estimation;{depthCount};{(100f * depthCount / count).ToString("F1", CultureInfo.InvariantCulture)}%;{depthStats.average.ToString("F4", CultureInfo.InvariantCulture)};{depthStats.min.ToString("F4", CultureInfo.InvariantCulture)};{depthStats.max.ToString("F4", CultureInfo.InvariantCulture)};{depthStats.stdDev.ToString("F4", CultureInfo.InvariantCulture)};{SafeFPS(depthStats.average)};{SafeFPS(depthStats.max)};{SafeFPS(depthStats.min)}");
         }
         else
         {
@@ -693,7 +694,7 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         
         if (inpaintStats.average > 0f)
         {
-            csvReport.AppendLine($"Inpainting;{inpaintingCount};{100f * inpaintingCount / count:F1}%;{inpaintStats.average:F4};{inpaintStats.min:F4};{inpaintStats.max:F4};{inpaintStats.stdDev:F4};{SafeFPS(inpaintStats.average)};{SafeFPS(inpaintStats.max)};{SafeFPS(inpaintStats.min)}");
+            csvReport.AppendLine($"Inpainting;{inpaintingCount};{(100f * inpaintingCount / count).ToString("F1", CultureInfo.InvariantCulture)}%;{inpaintStats.average.ToString("F4", CultureInfo.InvariantCulture)};{inpaintStats.min.ToString("F4", CultureInfo.InvariantCulture)};{inpaintStats.max.ToString("F4", CultureInfo.InvariantCulture)};{inpaintStats.stdDev.ToString("F4", CultureInfo.InvariantCulture)};{SafeFPS(inpaintStats.average)};{SafeFPS(inpaintStats.max)};{SafeFPS(inpaintStats.min)}");
         }
         else
         {
@@ -702,22 +703,22 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         
         if (postProcStats.average > 0f)
         {
-            csvReport.AppendLine($"Post-Processing;{postProcessingCount};{100f * postProcessingCount / count:F1}%;{postProcStats.average:F4};{postProcStats.min:F4};{postProcStats.max:F4};{postProcStats.stdDev:F4};{SafeFPS(postProcStats.average)};{SafeFPS(postProcStats.max)};{SafeFPS(postProcStats.min)}");
+            csvReport.AppendLine($"Post-Processing;{postProcessingCount};{(100f * postProcessingCount / count).ToString("F1", CultureInfo.InvariantCulture)}%;{postProcStats.average.ToString("F4", CultureInfo.InvariantCulture)};{postProcStats.min.ToString("F4", CultureInfo.InvariantCulture)};{postProcStats.max.ToString("F4", CultureInfo.InvariantCulture)};{postProcStats.stdDev.ToString("F4", CultureInfo.InvariantCulture)};{SafeFPS(postProcStats.average)};{SafeFPS(postProcStats.max)};{SafeFPS(postProcStats.min)}");
         }
         else
         {
             csvReport.AppendLine("Post-Processing;0;0%;0;0;0;0;N/A;N/A;N/A");
         }
         
-        csvReport.AppendLine($"Total Iteration;{count};100%;{iterationStats.average:F4};{iterationStats.min:F4};{iterationStats.max:F4};{iterationStats.stdDev:F4};{1.0f / iterationStats.average:F1};{1.0f / iterationStats.max:F1};{1.0f / iterationStats.min:F1}");
+        csvReport.AppendLine($"Total Iteration;{count};100%;{iterationStats.average.ToString("F4", CultureInfo.InvariantCulture)};{iterationStats.min.ToString("F4", CultureInfo.InvariantCulture)};{iterationStats.max.ToString("F4", CultureInfo.InvariantCulture)};{iterationStats.stdDev.ToString("F4", CultureInfo.InvariantCulture)};{(1.0f / iterationStats.average).ToString("F1", CultureInfo.InvariantCulture)};{(1.0f / iterationStats.max).ToString("F1", CultureInfo.InvariantCulture)};{(1.0f / iterationStats.min).ToString("F1", CultureInfo.InvariantCulture)}");
         csvReport.AppendLine();
         
         // Unity FPS statistics
         csvReport.AppendLine("Unity FPS Statistics;Value;Unit");
-        csvReport.AppendLine($"Average Unity FPS;{fpsStats.average:F2};fps");
-        csvReport.AppendLine($"Minimum Unity FPS;{fpsStats.min:F2};fps");
-        csvReport.AppendLine($"Maximum Unity FPS;{fpsStats.max:F2};fps");
-        csvReport.AppendLine($"Unity FPS Std Dev;{fpsStats.stdDev:F2};fps");
+        csvReport.AppendLine($"Average Unity FPS;{fpsStats.average.ToString("F2", CultureInfo.InvariantCulture)};fps");
+        csvReport.AppendLine($"Minimum Unity FPS;{fpsStats.min.ToString("F2", CultureInfo.InvariantCulture)};fps");
+        csvReport.AppendLine($"Maximum Unity FPS;{fpsStats.max.ToString("F2", CultureInfo.InvariantCulture)};fps");
+        csvReport.AppendLine($"Unity FPS Std Dev;{fpsStats.stdDev.ToString("F2", CultureInfo.InvariantCulture)};fps");
         
         csvReport.AppendLine("=====================================");
 
@@ -934,20 +935,20 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
         for (int i = 0; i < benchmarkResults.Count; i++)
         {
             var data = benchmarkResults[i];
-            csvReport.AppendLine($"{data.frameCount};{data.timestamp:F2};" +
-                            $"{data.segmentationTime * 1000:F2};" +
-                            $"{data.depthEstimationTime * 1000:F2};" +
-                            $"{data.inpaintingTime * 1000:F2};" +
-                            $"{data.postProcessingTime * 1000:F2};" +
-                            $"{data.totalIterationTime * 1000:F2};" +
-                            $"{data.unityFPS:F2};" +
+            csvReport.AppendLine($"{data.frameCount};{data.timestamp.ToString("F2", CultureInfo.InvariantCulture)};" +
+                            $"{(data.segmentationTime * 1000).ToString("F2", CultureInfo.InvariantCulture)};" +
+                            $"{(data.depthEstimationTime * 1000).ToString("F2", CultureInfo.InvariantCulture)};" +
+                            $"{(data.inpaintingTime * 1000).ToString("F2", CultureInfo.InvariantCulture)};" +
+                            $"{(data.postProcessingTime * 1000).ToString("F2", CultureInfo.InvariantCulture)};" +
+                            $"{(data.totalIterationTime * 1000).ToString("F2", CultureInfo.InvariantCulture)};" +
+                            $"{data.unityFPS.ToString("F2", CultureInfo.InvariantCulture)};" +
                             $"{(data.segmentationExecuted ? "TRUE" : "FALSE")};" +
                             $"{(data.depthEstimationExecuted ? "TRUE" : "FALSE")};" +
                             $"{(data.inpaintingExecuted ? "TRUE" : "FALSE")};" +
                             $"{(data.postProcessingExecuted ? "TRUE" : "FALSE")};" +
-                            $"{data.segmentationUpdateRate:F3};" +
-                            $"{data.depthUpdateRate:F3};" +
-                            $"{data.inpaintingUpdateRate:F3}");
+                            $"{data.segmentationUpdateRate.ToString("F3", CultureInfo.InvariantCulture)};" +
+                            $"{data.depthUpdateRate.ToString("F3", CultureInfo.InvariantCulture)};" +
+                            $"{data.inpaintingUpdateRate.ToString("F3", CultureInfo.InvariantCulture)}");
         }
 
         csvReport.AppendLine("===============================================");
@@ -1039,20 +1040,20 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
             foreach (var data in benchmarkResults)
             {
                 writer.WriteLine($"{data.frameCount}," +
-                               $"{data.timestamp:F4}," +
-                               $"{data.segmentationTime * 1000:F4}," +
-                               $"{data.depthEstimationTime * 1000:F4}," +
-                               $"{data.inpaintingTime * 1000:F4}," +
-                               $"{data.postProcessingTime * 1000:F4}," +
-                               $"{data.totalIterationTime * 1000:F4}," +
-                               $"{data.unityFPS:F2}," +
+                               $"{data.timestamp.ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(data.segmentationTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(data.depthEstimationTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(data.inpaintingTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(data.postProcessingTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(data.totalIterationTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{data.unityFPS.ToString("F2", CultureInfo.InvariantCulture)}," +
                                $"{data.segmentationExecuted}," +
                                $"{data.depthEstimationExecuted}," +
                                $"{data.inpaintingExecuted}," +
                                $"{data.postProcessingExecuted}," +
-                               $"{data.segmentationUpdateRate:F3}," +
-                               $"{data.depthUpdateRate:F3}," +
-                               $"{data.inpaintingUpdateRate:F3}," +
+                               $"{data.segmentationUpdateRate.ToString("F3", CultureInfo.InvariantCulture)}," +
+                               $"{data.depthUpdateRate.ToString("F3", CultureInfo.InvariantCulture)}," +
+                               $"{data.inpaintingUpdateRate.ToString("F3", CultureInfo.InvariantCulture)}," +
                                $"\"{cpu}\"," +
                                $"\"{gpu}\"," +
                                $"{SystemInfo.systemMemorySize}");
@@ -1076,9 +1077,9 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
                 executionIndex++;
                 float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
                 writer.WriteLine($"{executionIndex}," +
-                               $"{execution.timestamp:F4}," +
-                               $"{execution.executionTime * 1000:F4}," +
-                               $"{fps:F2}");
+                               $"{execution.timestamp.ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(execution.executionTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{fps.ToString("F2", CultureInfo.InvariantCulture)}");
             }
         }
     }
@@ -1099,9 +1100,9 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
                 executionIndex++;
                 float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
                 writer.WriteLine($"{executionIndex}," +
-                               $"{execution.timestamp:F4}," +
-                               $"{execution.executionTime * 1000:F4}," +
-                               $"{fps:F2}");
+                               $"{execution.timestamp.ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(execution.executionTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{fps.ToString("F2", CultureInfo.InvariantCulture)}");
             }
         }
     }
@@ -1122,9 +1123,9 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
                 executionIndex++;
                 float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
                 writer.WriteLine($"{executionIndex}," +
-                               $"{execution.timestamp:F4}," +
-                               $"{execution.executionTime * 1000:F4}," +
-                               $"{fps:F2}");
+                               $"{execution.timestamp.ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(execution.executionTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{fps.ToString("F2", CultureInfo.InvariantCulture)}");
             }
         }
     }
@@ -1145,9 +1146,9 @@ public class BenchmarkManager : MonoBehaviour, IBenchmarkManager
                 executionIndex++;
                 float fps = execution.executionTime > 0 ? 1.0f / execution.executionTime : 0f;
                 writer.WriteLine($"{executionIndex}," +
-                               $"{execution.timestamp:F4}," +
-                               $"{execution.executionTime * 1000:F4}," +
-                               $"{fps:F2}");
+                               $"{execution.timestamp.ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{(execution.executionTime * 1000).ToString("F4", CultureInfo.InvariantCulture)}," +
+                               $"{fps.ToString("F2", CultureInfo.InvariantCulture)}");
             }
         }
     }
