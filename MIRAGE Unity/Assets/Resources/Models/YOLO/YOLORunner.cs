@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
-using Unity.Sentis;
+using Unity.InferenceEngine;
 using Unity.VisualScripting;
 using UnityEditor.EditorTools;
 using UnityEditor.Experimental.GraphView;
@@ -81,6 +81,11 @@ public class YOLOSegmentationRunner : SegmentationRunner
     private Tensor<float> maskTensor; // N, 160, 160, 1 (masks)
     private Tensor<float> bboxTensor; // N, 4 (coords are centerX, centerY, width, height)
 
+    public Tensor<float> BBoxTensor {
+        get {
+            return bboxTensor;
+        }
+    }
 
     public override int NumObjDetected => numDetections;
     //Output Data (CPU)
@@ -214,7 +219,7 @@ public class YOLOSegmentationRunner : SegmentationRunner
         //var input = graph.AddInput(model, 0); //get input tensor from original model
         var input = graph.AddInput(DataType.Float, new DynamicTensorShape(1,3,-1,-1));
 
-        input = input.Pad(padding, paddingValue);
+        input = Functional.Pad(input, padding, paddingValue); //At this point, the input tensor is padded to match the input dimensions of the model
 
         //no preprocessing needed
         var outputs = Functional.Forward(model, input);

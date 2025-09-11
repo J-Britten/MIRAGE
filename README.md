@@ -1,9 +1,8 @@
 # MIRAGE: Enabling Real-Time Automotive Mediated Reality
 
-Mediated Reality (MR) concepts have applications for all SAE levels. However, due to technical hurdles, these concepts are often never evaluated in real vehicles on the real road. We present MIRAGE, a first approach aimed at simplifying the task of evaluating MR
-visualization concepts in-vehicle. We implemented nine visualization concepts covering the entire MR spectrum, from diminished reality (DR) to augmented reality (AR). MIRAGE uses state-of-the-art computational models for detection and segmentation, depth estimation, and inpainting to enable the selective application of MR concepts in real-time, achieving up to 34 FPS on an RTX 4080 Super. We evaluated MIRAGE in an expert user study (N=9). Participants
-enjoyed the experience while pointing out technical limitations and identifying use cases and additional parameters relevant to MR. We discuss these results in context with related work and give an outlook on implications for MR regarding ethics and interaction
-concepts.
+Traffic is inherently dangerous, with millions of fatalities every year. Automotive Mediated Reality (AMR) can enhance driving safety by overlaying critical information (e.g., outlines, icons, text) on key objects to improve awareness, altering objects' appearance to simplify traffic situations, and diminishing their appearance to minimize distractions. However, real-world AMR evaluation remains limited due to technical challenges.
+To fill this _sim-to-real_ gap, we present `MIRAGE`, an open-source tool that enables real-time AMR in real vehicles. `MIRAGE` implements 15 effects across the AMR spectrum of augmented, diminished, and modified reality using state-of-the-art computational models for object detection and segmentation, depth estimation, and inpainting.
+In an on-road expert user study (N=9) of `MIRAGE`, participants enjoyed the AMR experience while pointing out technical limitations and identifying use cases for AMR. We discuss these results in the context of related work and outline implications for AMR ethics and interaction design.
 
 ## Authors
 Anonymized
@@ -11,7 +10,7 @@ Anonymized
 ## Setup
 ### 1. Unity 
 1. Clone this repository
-2. Download and install [Unity](https://unity.com/download) version `2022.3.49f1`
+2. Download and install [Unity](https://unity.com/download) version `6000.2.2f1`
 3. Open the `MIRAGE Unity` Project.
 
 ### 2. Preparing Computational Models
@@ -56,6 +55,22 @@ We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Mo
 5. Add effects to the scene using the `UI`
     - If you are using a scene without `UI`, refer to the `Effects` section of this README
 6. Changes are saved on UI toggle.
+
+### Preparing the VR Scene for In-Vehicle XR Usage
+0. Set up Passthrough for Unity for your XR HMD. This step dependsg on the XR System you're using, please refer to the respective documentation.
+    - The scene is generally empty and aside from the UI only contains a virtual WSD (Front Glass Placeholder) through the video projection can be seen
+    - The effecte is created using a stencil buffer 
+1. Setting up the WSD. Select the `Front Glass Placeholder`. This is the virtual WSD, which should match your vehicle's WSD as closely as possible. 
+    - Ideally you would replace it with a 3D model of the windshield of your car using the same materials and shaders
+    - Run the scene to line it up with the real world as closely as possible. If you have a full 3D model of your vehicle available, it may be better to do this calibration step in a separate scene and then copy over the transform values afterwards.
+2. Setting up the Camera: Select the `Camera Input` Object (green gizmo) and move it to match the position of the position of the real camera mounted to the windshield as closely as possible. 
+3. Adjust the `VideoProjectionSurface`: To accurately project the image back onto a surface, the FOV value needs to match your camera's FOV
+    - Ideally the FOV is high enough to cover the entire WSD.
+    - A higher FOV could also cover side windows (requires additional virtual WSDs, see previous step)
+    - Adjust the viewing distance if needed (changes the scale of the projection plane)
+4. Testing:
+    - As multiple objects that need accurate placements are involved, getting it to `look right` may recover some trial and error.
+    - If no changes are done to the in-vehicle setup, this only has to be done once. Make sure to document the adjustments you made 
 
 ### UI Controls
 - Keyboard: Mouse or Arrow Keys, Enter/Space, ESC
@@ -120,7 +135,7 @@ We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Setti
 ### PostProcessor (GPU)
 - Script that executes a shader which adds something to the image.
 - Requires the segmentation mask 
-- See the `ColoredMaskSegmentationShader.compute` for a simple example
+- Refer to the `ColoredMaskSegmentationShader.compute` for a simple example
 
 ### ImagePostProcessor (GPU)
 - Script that executes a shader which manipulates the input image using the segmentation output
@@ -136,33 +151,65 @@ We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Setti
 
 
 ## Adding new models
-We use Unity Sentis to execute `ONNX` models in Unity. While we provide abstract `runner` classes to simplify adding new models, we recommend taking a look at the [documentation first](https://docs.unity3d.com/Packages/com.unity.sentis@2.1).
+We use Unity Inference Engine (formerly Unity Sentis) to execute `ONNX` models in Unity. While we provide abstract `runner` classes to simplify adding new models, we recommend taking a look at the [documentation first](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/manual/index.html).
 
 Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipeline executes models.
 
 ### Exporting to ONNX
-1. Find a model you would want to use and export it to `ONNX`. 
+1. Find a model you would like to use and export it to `ONNX`. 
     -   This process highly depends on the model and its implementation. 
-    -   Not all `ONNX` models are [compatible](https://docs.unity3d.com/Packages/com.unity.sentis@2.1/manual/supported-operators.html)
-    - Note: We won't assist in exporting models to ONNX. Please refer to the developers of the models.
+    -   Not all `ONNX` models are [compatible](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/manual/supported-operators.html)
+    - Note: We can't assist in exporting models to ONNX. Please refer to the developers of the models.
 2. Add the model to Unity. If no errors are thrown, the model is most likely compatible.
 3. Write down the input and output tensors
 
 ### Creating a ModelRunner script
 1. Inherit from `ModelRunner.cs` (or `InpaintingRunner`, `DepthEstimationRunner`, or `SegmentationRunner` if your model fulfills one of these tasks)
 2. Implement the abstract methods. 
-    - Look at the `YOLORunner`, `MIGANRunner`, or `DepthAnythingRunner` for inspiration
+    - Use `YOLORunner`, `MIGANRunner`, or `DepthAnythingRunner` for inspiration
 3. Create a new scene, add the model and a `ModelExecutor` to it
     - Alternatively duplicate a scene in `Scenes/Models/` and replace the model
     - Take a look at these scenes for inspiration
 4. Set the parameters for your model
 5. Run the model
+6. As models heavily rely on each other as part of the pipeline, the `Pipeline.cs` script has to be modified to incorporate another model.
 
-6. Currently, models can't be dynamically added to the pipeline. If you aim to add an additional model to the pipeline (instead of replacing another), the `Pipeline.cs` script has to be modified by hand.
+
+## Benchmarks
+This section covers benchmark results along with instructions on how to conduct benchmark tests.
+
+### Results
+| Hardware                                                                       | Segmentation ms                     | Inpainting ms                       | Depth Estimation ms                 | Post Processing ms               | Unity FPS                          |
+|--------------------------------------------------------------------------------|-------------------------------------|-------------------------------------|-------------------------------------|----------------------------------|------------------------------------|
+| 11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz : NVIDIA GeForce RTX 3080         | 133.66 ± 33.45 | 146.78 ± 35.07 | 148.48 ± 30.99 | 0.11 ± 0.12 | 20.77 ± 10.95 |
+| AMD Ryzen 5 9600X 6-Core Processor : NVIDIA GeForce RTX 4070 Ti SUPER           | 75.52 ± 20.19                       | 85.18 ± 19.78                       | 85.30 ± 19.64                       | 0.05 ± 0.12                      | 28.48 ± 9.59                       |
+| Intel(R) Core(TM) i7-14700F : NVIDIA GeForce RTX 4080 SUPER | 88.53 ± 25.38  | 105.43 ± 28.35 | 106.90 ± 25.37 | 0.07 ± 0.10 | 28.92 ± 14.28 |
+| Intel(R) Core(TM) i7-14700KF : NVIDIA GeForce RTX 4090                           | 72.39 ± 15.41                       | 86.41 ± 20.33                       | 87.37 ± 17.93                       | 0.04 ± 0.09                      | 28.43 ± 12.16                      |
+| Intel(R) Core(TM) i7-14700K : NVIDIA GeForce RTX 5080       | 57.50 ± 15.84  | 71.87 ± 23.75  | 72.23 ± 23.20  | 0.04 ± 0.09 | 38.89 ± 17.32 |
+
+
+
+Note that since the models run independently in the `parallel` pipeline mode, there is no shared total iteration time.
+Further, the Unity FPS solely refers to the updated content; passthrough capabilities run without interference at the headset's set frequency (90 Hz for the Varjo 3).
+
+
+### How to Benchmark
+1. Open one of the existing Benchmark scenes.
+2. These scenes are pre-configured with postprocessing effects that ensure all components of the pipeline are used (models, shaders, cpu effects)
+3. Assign the models as described in the [Preparing a Scene](#preparing-a-scene) section. 
+4. Adjust the BenchmarkManager Script in the Inspector accordingly. By default, a 60 second benchmark will begin on launch.
+5. Use the `Benchmark Controller` window via the `MIRAGE` menu item to control the benchmark manually.
+6. The results of the benchmark will be reported in the console.
+7. If enabled, the logging data will also be exported as `.csv` files. They can be found in the `MIRAGE Unity/BenchmarkExports/` directory.
+8. The `BenchmarkAutomation` can be used to automate the Benchmark process.
+
+## Citation
+
+anonymized
 
 ## References
 
-- [Unity Sentis](https://docs.unity3d.com/Packages/com.unity.sentis@2.1)
+- [Unity Inference Engine](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/)
 
 The UI was built using
 - [Unity UI Extensions](https://github.com/Unity-UI-Extensions/com.unity.uiextensions) 

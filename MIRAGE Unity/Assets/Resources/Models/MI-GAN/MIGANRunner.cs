@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using NUnit.Framework.Constraints;
-using Unity.Sentis;
+using Unity.InferenceEngine;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
@@ -45,11 +45,11 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
     public RawImage DebugOutputImage;
 
 
-    private TextureTransform imgTransform, maskTransform;
+    private Unity.InferenceEngine.TextureTransform imgTransform, maskTransform;
 
-    private Tensor<float> inputTensor;
-    private Tensor<float> inputMaskTensor;
-    private Tensor<float> outputTensor;
+    private Unity.InferenceEngine.Tensor<float> inputTensor;
+    private Unity.InferenceEngine.Tensor<float> inputMaskTensor;
+    private Unity.InferenceEngine.Tensor<float> outputTensor;
 
     /// <summary>
     /// Shader that validates the objects detected by YOLO
@@ -76,28 +76,46 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
 
         PreparePreProcessing();
 
-        var model = ModelLoader.Load(ModelAsset);
+        var model = Unity.InferenceEngine.ModelLoader.Load(ModelAsset);
 
-        var graph = new FunctionalGraph();
+        var graph = new Unity.InferenceEngine.FunctionalGraph();
 
-        var inputImg = graph.AddInput(DataType.Float, new DynamicTensorShape(1, 3, -1, -1));
-        var inputMsk = graph.AddInput(DataType.Float, new DynamicTensorShape(1, 1, -1, -1));
+        var inputImg = graph.AddInput(Unity.InferenceEngine.DataType.Float, new Unity.InferenceEngine.DynamicTensorShape(1, 3, -1, -1));
+        var inputMsk = graph.AddInput(Unity.InferenceEngine.DataType.Float, new Unity.InferenceEngine.DynamicTensorShape(1, 1, -1, -1));
         
 
-        inputMsk = Functional.Interpolate(inputMsk, new int[] {InputHeight, InputWidth}, mode: "nearest");
+        inputMsk = Unity.InferenceEngine.Functional.Interpolate(inputMsk, new int[] {InputHeight, InputWidth}, mode: "nearest");
         //var sliced = inputMsk[..,0,..,..];
-        var ceil = Functional.Ceil(inputMsk);
+        var ceil = Unity.InferenceEngine.Functional.Ceil(inputMsk);
         
         ceil = 1 - ceil;
        // ceil = Functional.MaxPool2D(ceil, 5, 1, 2);
 
-        var outputs = Functional.Forward(model, inputImg, ceil);
+        var outputs = Unity.InferenceEngine.Functional.Forward(model, inputImg, ceil);
         var op = outputs[0];
         
         op = op * inputMsk;
 
-        var alpha = Functional.Concat(new[] {op, inputMsk}, 1);
+        var alpha = Unity.InferenceEngine.Functional.Concat(new[] {op, inputMsk}, 1);
         runtimeModel = graph.Compile(alpha, ceil);
+        
+        // Initialize output textures once to avoid recreating them every frame
+        PrepareOutputTextures();
+    }
+    
+    private void PrepareOutputTextures()
+    {
+        // Create output texture with proper format and size
+        if (outputTexture != null) outputTexture.Release();
+        outputTexture = new RenderTexture(OutputWidth, OutputHeight, 0, RenderTextureFormat.ARGB32);
+        outputTexture.enableRandomWrite = true;
+        outputTexture.Create();
+        
+        // Create mask output texture
+        if (maskOutputTexture != null) maskOutputTexture.Release();
+        maskOutputTexture = new RenderTexture(OutputWidth, OutputHeight, 0, RenderTextureFormat.R8);
+        maskOutputTexture.enableRandomWrite = true;
+        maskOutputTexture.Create();
     }
 
     private void PreparePreProcessing() {
@@ -109,13 +127,13 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
         objectValidator.SetBuffer(objectValidatorKernel, "ValidObjects", validObjectsBuffer);
         UpdateClasses();
 
-        inputMaskTensor = new Tensor<float>(new TensorShape(1, 1, ImageHeight, ImageWidth));
+        inputMaskTensor = new Unity.InferenceEngine.Tensor<float>(new Unity.InferenceEngine.TensorShape(1, 1, ImageHeight, ImageWidth));
 
         createMaskKernel = createMaskShader.FindKernel("CreateMask");
         
         createMaskThreadGroups = Mathf.CeilToInt((ImageWidth * ImageHeight) / 64f);
         createMaskShader.SetBuffer(createMaskKernel, "ValidObjects", validObjectsBuffer);
-        createMaskShader.SetBuffer(createMaskKernel, "MaskBuffer", ComputeTensorData.Pin(inputMaskTensor).buffer);
+        createMaskShader.SetBuffer(createMaskKernel, "MaskBuffer", Unity.InferenceEngine.ComputeTensorData.Pin(inputMaskTensor).buffer);
         createMaskShader.SetInt("NumMaskPositions", ImageWidth * ImageHeight); //ensures we dont go out of bounds
     }
 
@@ -164,7 +182,7 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
         createMaskShader.SetBuffer(createMaskKernel, "YOLOMaskBuffer", yolo.OutputBuffer);
         createMaskShader.Dispatch(createMaskKernel, createMaskThreadGroups, 1, 1);
 
-        inputTensor = TextureConverter.ToTensor(input, imgTransform);
+        inputTensor = Unity.InferenceEngine.TextureConverter.ToTensor(input, imgTransform);
         schedule = worker.ScheduleIterable(inputTensor, inputMaskTensor);
         // Run the inpainting model
         yield return RunInference();
@@ -180,8 +198,8 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
     {
        // if( inputMaskTensor != null) inputMaskTensor.Dispose();
        
-        inputTensor = TextureConverter.ToTensor(inputs[0], imgTransform);
-        inputMaskTensor = TextureConverter.ToTensor(inputs[1], maskTransform);
+        inputTensor = Unity.InferenceEngine.TextureConverter.ToTensor(inputs[0], imgTransform);
+        inputMaskTensor = Unity.InferenceEngine.TextureConverter.ToTensor(inputs[1], maskTransform);
 
 
         schedule = worker.ScheduleIterable(inputTensor, inputMaskTensor);
@@ -196,21 +214,20 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
 
    protected override void PeekOutput()
     {
-        outputTensor = worker.PeekOutput(0) as Tensor<float>;
+        outputTensor = worker.PeekOutput(0) as Unity.InferenceEngine.Tensor<float>;
         outputTensor.ReadbackRequest();
     }
 
     protected override void ReadOutput()
     {
-        if (outputTexture != null) {
-            outputTexture.Release();
-        }
-        if( maskOutputTexture != null) maskOutputTexture.Release();
-
-
-        outputTexture = TextureConverter.ToTexture(outputTensor);
+        
+        // Use new RenderToTexture API with pre-created textures
+        var outputTransform = new TextureTransform();
+        Unity.InferenceEngine.TextureConverter.RenderToTexture(outputTensor, outputTexture, outputTransform);
+        
         if(MaskImage != null) {
-            maskOutputTexture = TextureConverter.ToTexture(inputMaskTensor);
+            var maskTransform = new TextureTransform();
+            Unity.InferenceEngine.TextureConverter.RenderToTexture(inputMaskTensor, maskOutputTexture, maskTransform);
             MaskImage.texture = maskOutputTexture;
         }
 
@@ -231,7 +248,8 @@ public class MIGANRunner : InpaintingRunner, IEffectHandler
     {
         DisposeOutput();
         if(worker != null) worker.Dispose();
-        if ( outputTexture != null) outputTexture.Release();
+        if (outputTexture != null) outputTexture.Release();
+        if (maskOutputTexture != null) maskOutputTexture.Release();
 
         if( validObjectsBuffer != null) validObjectsBuffer.Release();
         if( settingsBuffer != null) settingsBuffer.Release();

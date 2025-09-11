@@ -148,7 +148,7 @@ VideoPlayer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 91498959}
   m_Enabled: 1
-  m_VideoClip: {fileID: 32900000, guid: 0dc422d573b35154aa3676ff784b0859, type: 3}
+  m_VideoClip: {fileID: 32900000, guid: 02dddbdba43924688a966435b7467fad, type: 3}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
   m_TargetCamera: {fileID: 0}
@@ -306,7 +306,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   IsEnabled: 1
-  ModelAsset: {fileID: 5022602860645237092, guid: 3718c6e644689264a90a0dafe7e636d5, type: 3}
+  ModelAsset: {fileID: 5022602860645237092, guid: 21d5df29715e7442da6074cc8e92c288, type: 3}
   UpdateRate: 1
   MaxObjects: 256
   OutputImage: {fileID: 989495239}
@@ -316,7 +316,7 @@ MonoBehaviour:
   InputHeight: 640
   OutputWidth: 640
   OutputHeight: 360
-  TextAsset: {fileID: 0}
+  TextAsset: {fileID: 4900000, guid: e8b09f471c23e3a48983f4382c3e0184, type: 3}
   MaskScalingFactor: 4
   ClipPadding: 1
   YOLOClasses: 80

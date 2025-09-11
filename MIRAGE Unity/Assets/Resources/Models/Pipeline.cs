@@ -33,6 +33,9 @@ public class Pipeline : MonoBehaviour
     private RenderTexture imagePostProcessingOverlay;
     private RenderTexture inputTexture { get => CameraInput.Instance.CurrentFrame; }
 
+    // Benchmark integration
+    private IBenchmarkManager benchmarkManager;
+
 #region Initialization
     void Awake()
     {     
@@ -43,8 +46,10 @@ public class Pipeline : MonoBehaviour
     {
         if (RunAsSequence)
         {
+            benchmarkManager.SetParallelMode(false);
             StartCoroutine(RunSequentialPipeline());
         } else {
+            benchmarkManager.SetParallelMode(true);
             StartCoroutine(RunSegmentation());
             StartCoroutine(RunDepthEstimation());
             StartCoroutine(RunInpainting());
@@ -55,14 +60,15 @@ public class Pipeline : MonoBehaviour
     /// <summary>
     /// Initialize the pipeline
     /// </summary>
-    private void InitializePipeline() {
+    private void InitializePipeline()
+    {
         //Find the models
         segmentationModel = FindAnyObjectByType<SegmentationRunner>();
         inpaintingModel = FindAnyObjectByType<InpaintingRunner>();
         depthModel = FindAnyObjectByType<DepthEstimationRunner>();
 
         //Setup render textures
-        postProcessingOverlay = new RenderTexture(segmentationModel.OutputWidth, segmentationModel.OutputHeight, 0,UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_UNorm);
+        postProcessingOverlay = new RenderTexture(segmentationModel.OutputWidth, segmentationModel.OutputHeight, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_UNorm);
         postProcessingOverlay.enableRandomWrite = true;
         postProcessingOverlay.Create();
 
@@ -74,24 +80,29 @@ public class Pipeline : MonoBehaviour
         if (segmentationModel is YOLOSegmentationRunner)
         {
 
-            cpuPostProcessors = FindObjectsOfType<CPUPostProcessor>();
+            cpuPostProcessors = FindObjectsByType<CPUPostProcessor>(FindObjectsSortMode.None);
             foreach (var processor in cpuPostProcessors)
             {
                 processor.Initialize(segmentationModel as YOLOSegmentationRunner, depthModel, CPUPostProcessingContainer);
             }
         }
 
-        gpuPostProcessors = FindObjectsOfType<PostProcessor>();
-        foreach(var processor in FindObjectsOfType<PostProcessor>()) {
+        gpuPostProcessors = FindObjectsByType<PostProcessor>(FindObjectsSortMode.None);
+        foreach (var processor in FindObjectsByType<PostProcessor>(FindObjectsSortMode.None))
+        {
 
-            if (processor is ImagePostProcessor) {
+            if (processor is ImagePostProcessor)
+            {
                 var imageProcessor = processor as ImagePostProcessor;
                 imageProcessor.Initialize(segmentationModel, depthModel, imagePostProcessingOverlay);
             }
-            else {
+            else
+            {
                 processor.Initialize(segmentationModel, depthModel, postProcessingOverlay);
             }
-        }
+        }        // Initialize Benchmark Manager
+        var benchmarkManagerComponent = FindAnyObjectByType<BenchmarkManager>();
+        benchmarkManager = benchmarkManagerComponent != null ? benchmarkManagerComponent : new NullBenchmarkManager(); //Null Object Pattern
     }
 #endregion
 
@@ -100,25 +111,40 @@ public class Pipeline : MonoBehaviour
     {
         while (true)
         {
+            // Start segmentation timing
+            benchmarkManager.StartSegmentation();
+
             float startTime = Time.realtimeSinceStartup;
             yield return segmentationModel.RunModel(inputTexture);
             float endTime = Time.realtimeSinceStartup;
             float deltaTime = endTime - startTime;
+
+            // End segmentation timing
+            benchmarkManager.EndSegmentation();
+
             segmentationTimeText.text = "Segmentation Time: " + deltaTime.ToString("F4") + "s\nFPS: " + (1.0f / deltaTime).ToString("F2");
         }
     }
 
     private IEnumerator RunDepthEstimation()
     {
+
         while (true)
         {
             if (depthModel.IsEnabled)
             {
+                // Start depth estimation timing
+                benchmarkManager.StartDepthEstimation();
+
                 float startTime = Time.realtimeSinceStartup;
                 yield return depthModel.RunModel(inputTexture);
                 depthModel.CalculateObjectDepths(segmentationModel.OutputBuffer, segmentationModel.NumObjDetected);
                 float endTime = Time.realtimeSinceStartup;
                 float deltaTime = endTime - startTime;
+
+                // End depth estimation timing
+                benchmarkManager.EndDepthEstimation();
+
                 depthEstimationTimeText.text = "Depth Estimation Time: " + deltaTime.ToString("F4") + "s\nFPS: " + (1.0f / deltaTime).ToString("F2");
             }
             else
@@ -134,10 +160,17 @@ public class Pipeline : MonoBehaviour
         {
             if (inpaintingModel.IsEnabled)
             {
+                // Start inpainting timing
+                benchmarkManager.StartInpainting();
+
                 float startTime = Time.realtimeSinceStartup;
                 yield return inpaintingModel.RunModel(inputTexture, segmentationModel as YOLOSegmentationRunner, depthModel.ObjectDepthBuffer);
                 float endTime = Time.realtimeSinceStartup;
                 float deltaTime = endTime - startTime;
+
+                // End inpainting timing
+                benchmarkManager.EndInpainting();
+
                 inpaintingTimeText.text = "Inpainting Time: " + deltaTime.ToString("F4") + "s\nFPS: " + (1.0f / deltaTime).ToString("F2");
             }
             else
@@ -145,14 +178,11 @@ public class Pipeline : MonoBehaviour
                 yield return null;
             }
         }
-    }
-
-    private IEnumerator RunPostProcessing()
+    }    private IEnumerator RunPostProcessing()
     {
         while (true)
         {
             PostProcessing();
-
             yield return null;
         }
     }
@@ -160,31 +190,45 @@ public class Pipeline : MonoBehaviour
 #endregion
 
 #region Sequential Execution
-    float inferenceTime;
-
-    private IEnumerator RunSequentialPipeline()
+    float inferenceTime;    private IEnumerator RunSequentialPipeline()
     {
         while (true)
         {
-            RenderTexture.active = null;  // Reset active render texture        
+            // Start iteration timing for benchmark
+            benchmarkManager.StartIteration();
+            
+            RenderTexture.active = null;  // Reset active render texture
             inferenceTime = Time.realtimeSinceStartup;
+
+            // Segmentation
+            benchmarkManager.StartSegmentation();
             yield return StartCoroutine(segmentationModel.RunModel(inputTexture));
+            benchmarkManager.EndSegmentation();
+
+            // Depth Estimation
             if (depthModel.IsEnabled)
             {
+                benchmarkManager.StartDepthEstimation();
                 yield return StartCoroutine(depthModel.RunModel(inputTexture));
                 depthModel.CalculateObjectDepths(segmentationModel.OutputBuffer, segmentationModel.NumObjDetected);
+                benchmarkManager.EndDepthEstimation();
             }
+
+            // Inpainting
             if (inpaintingModel.IsEnabled)
             {
+                benchmarkManager.StartInpainting();
                 yield return StartCoroutine(inpaintingModel.RunModel(inputTexture, segmentationModel as YOLOSegmentationRunner, depthModel.ObjectDepthBuffer));
-            }
+                benchmarkManager.EndInpainting();
+            }            // Post Processing
             PostProcessing();
             
             segmentationModel.DisposeOutput();
             var speed = Time.realtimeSinceStartup - inferenceTime;
             segmentationTimeText.text = "Inference Speed: " + speed.ToString("F4") + "s\n" + "FPS: " + (1.0f / speed).ToString("F2");
-
-
+            
+            // End iteration timing for benchmark
+            benchmarkManager.EndIteration();
         }
     }
 #endregion
@@ -195,6 +239,9 @@ public class Pipeline : MonoBehaviour
     /// </summary>
     private void PostProcessing()
     {
+        // Start post-processing timing
+        benchmarkManager.StartPostProcessing();
+
         float startTime = Time.realtimeSinceStartup;
         RenderTexture.active = null;
         RenderTexture.active = postProcessingOverlay;
@@ -227,6 +274,9 @@ public class Pipeline : MonoBehaviour
         float endTime = Time.realtimeSinceStartup;
         float deltaTime = endTime - startTime;
         postProcessingTimeText.text = "Post Processing Time: " + deltaTime.ToString("F4") + "s\nFPS: " + (1.0f / deltaTime).ToString("F2");
+
+        // End post-processing timing
+        benchmarkManager.EndPostProcessing();
     }
 
 }

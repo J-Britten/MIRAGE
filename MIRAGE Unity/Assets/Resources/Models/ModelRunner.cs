@@ -1,6 +1,6 @@
 using System;
 using System.Collections;
-using Unity.Sentis;
+
 using UnityEditor.EditorTools;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +24,7 @@ using UnityEngine.XR.ARFoundation.VisualScripting;
 public abstract class ModelRunner : MonoBehaviour
 {
     public bool IsEnabled = true;
-    public ModelAsset ModelAsset;
+    public Unity.InferenceEngine.ModelAsset ModelAsset;
 
     /// <summary>
     /// Total number of layers to process each frame.
@@ -66,8 +66,8 @@ public abstract class ModelRunner : MonoBehaviour
     public int OutputWidth;
     public int OutputHeight;
 
-    protected Model runtimeModel;
-    protected Worker worker;
+    protected Unity.InferenceEngine.Model runtimeModel;
+    protected Unity.InferenceEngine.Worker worker;
     protected IEnumerator schedule;
     protected bool inferencePending = false;
     protected bool modelRunning = false;
@@ -181,7 +181,7 @@ public abstract class ModelRunner : MonoBehaviour
             return;
         }
         PrepareModel(); //Prepare the model
-        worker = new Worker(runtimeModel, BackendType.GPUCompute);
+        worker = new Unity.InferenceEngine.Worker(runtimeModel, Unity.InferenceEngine.BackendType.GPUCompute);
         // Set the layers per frame to the total number of layers per default
         totalLayers = runtimeModel.layers.Count;
         layersPerFrame = totalLayers;
