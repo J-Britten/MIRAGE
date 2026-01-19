@@ -214,6 +214,13 @@ Further, the Unity FPS solely refers to the updated content; passthrough capabil
 7. If enabled, the logging data will also be exported as `.csv` files. They can be found in the `MIRAGE Unity/BenchmarkExports/` directory.
 8. The `BenchmarkAutomation` can be used to automate the Benchmark process.
 
+## Statistical Analysis
+The statistical analyses (benchmark and expert study) was lastly tested with the following setup:
+
+1. RStudio 2026.01.0
+2. R version 4.5.2
+3. Rtools45
+
 ## Citation
 
 If you use this work, please cite it as:
