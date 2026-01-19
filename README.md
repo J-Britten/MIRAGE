@@ -7,7 +7,16 @@ To fill this _sim-to-real_ gap, we present `MIRAGE`, an open-source tool that en
 In an on-road expert user study (N=9) of `MIRAGE`, participants enjoyed the AMR experience while pointing out technical limitations and identifying use cases for AMR. We discuss these results in the context of related work and outline implications for AMR ethics and interaction design.
 
 ## Authors
-Anonymized
+[Pascal Jansen](https://scholar.google.de/citations?user=cR1_0-EAAAAJ&hl=en)* <sup>a b</sup>,
+[Julian Britten](https://scholar.google.de/citations?user=yQ40eSIAAAAJ&hl=en&oi=ao)* <sup>a</sup>,
+[Mark Colley](https://scholar.google.de/citations?user=Kt5I7wYAAAAJ&hl=en&oi=ao)* <sup>b</sup>,
+Markus Sasalovici <sup>a c</sup>,
+Enrico Rukzio <sup>a</sup>
+
+**Authors contributed equally to this work*<br>
+*a: Institute of Media Informatics, Ulm University*<br>
+*b: UCL Interaction Centre*<br>
+*c: Mercedes-Benz Tech Innovation*
 
 ## Setup
 ### 1. Unity 
@@ -207,7 +216,23 @@ Further, the Unity FPS solely refers to the updated content; passthrough capabil
 
 ## Citation
 
-anonymized
+If you use this work, please cite it as:
+
+Pascal Jansen, Julian Britten, Mark Colley, Markus Sasalovici, and Enrico Rukzio. 2026. **MIRAGE: Enabling Real-Time Automotive Reality.** In *Proceedings of the 2026 CHI Conference on Human Factors in Computing Systems (CHI ’26)*, April 13–17, 2026, Barcelona, Spain. ACM. DOI: 10.1145/3772318.3791195
+
+```
+@inproceedings{jansen2026mirage,
+  author    = {Jansen, Pascal and Britten, Julian and Colley, Mark and Sasalovici, Markus and Rukzio, Enrico},
+  title     = {MIRAGE: Enabling Real-Time Automotive Reality},
+  booktitle = {Proceedings of the 2026 CHI Conference on Human Factors in Computing Systems (CHI '26)},
+  year      = {2026},
+  month     = apr,
+  location  = {Barcelona, Spain},
+  publisher = {ACM},
+  doi       = {10.1145/3772318.3791195},
+  isbn      = {979-8-4007-2278-3/2026/04}
+}
+```
 
 ## References
 
