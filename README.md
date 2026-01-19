@@ -16,7 +16,7 @@ Enrico Rukzio <sup>a</sup>
 **Authors contributed equally to this work*<br>
 *a: Institute of Media Informatics, Ulm University*<br>
 *b: UCL Interaction Centre*<br>
-*c: Mercedes-Benz Tech Innovation*
+*c: Mercedes-Benz Tech Innovation GmbH*
 
 ## Setup
 ### 1. Unity 
@@ -25,10 +25,10 @@ Enrico Rukzio <sup>a</sup>
 3. Open the `MIRAGE Unity` Project.
 
 ### 2. Preparing Computational Models
-`MIRAGE` utilizes multiple computational models which need to be converted to the `ONNX` file format.
-After acquiring a ONNX model, add it to the Unity project.
+`MIRAGE` utilizes multiple computational models that need to be converted to the `ONNX` format.
+After acquiring an ONNX model, add it to the Unity project.
 #### Object Detection & Segmentation
-We use [YOLO11-seg](https://github.com/ultralytics/ultralytics) for Object Detection and segmentation. It can be converted to `ONNX` with this python code:
+We use [YOLO11-seg](https://github.com/ultralytics/ultralytics) for Object Detection and segmentation. It can be converted to `ONNX` with this Python code:
 
 ```python
 from ultralytics import YOLO
@@ -44,7 +44,7 @@ We use [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) f
 1. Download the `depth_anything_v2_vits_outdoor_dynamic` model from [this repository](https://github.com/fabio-sim/Depth-Anything-ONNX/releases/tag/v2.0.0).
 
 #### Inpainting
-We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Model to realize effects such as `Remove` or `Opacity`. We modified their ONNX export pipeline for better compatibility with our pipeline.
+We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Model to realize effects such as `Remove` or `Opacity`. We modified their ONNX export pipeline to improve compatibility with ours.
 
 1. Clone the `MI-GAN` repository.
 2. Replace the `/scripts/create_onnx_pipeline.py` script with our script found in the `Models/MI-GAN/create_onnx_pipeline.py` directory.
@@ -60,28 +60,28 @@ We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Mo
     - `VR` allows you to use the UI while watching the video through VR. We used this scene in our study setup. It does require additional setup.
 2. Find the `CameraInput` game object. 
     - If you are using a webcam for input, hit `Refresh Camera List` and select your webcam. Untick the `Use Debug Video Input` box
-    - If you are using a video, navigate to the `VideoPlayer` child object and add the video. We added additional video controls that can be used on runtime.
+    - If you are using a video, navigate to the `VideoPlayer` child object and add the video. We added additional video controls that can be used at runtime.
 3. Find the `Models` Game Object. For each of the models, add the respective `ONNX` file to the `Model Asset` field.
 4. Start the scene.
-5. Add effects to the scene using the `UI`
+5. Add effects to the scene using the `UI.`
     - If you are using a scene without `UI`, refer to the `Effects` section of this README
-6. Changes are saved on UI toggle.
+6. Changes are saved on the UI toggle.
 
 ### Preparing the VR Scene for In-Vehicle XR Usage
-0. Set up Passthrough for Unity for your XR HMD. This step dependsg on the XR System you're using, please refer to the respective documentation.
-    - The scene is generally empty and aside from the UI only contains a virtual WSD (Front Glass Placeholder) through the video projection can be seen
-    - The effecte is created using a stencil buffer 
+0. Set up Passthrough for Unity for your XR HMD. This step depends on the XR System you're using. Please refer to the respective documentation.
+    - The scene is generally empty and aside from the UI, only contains a virtual WSD (Front Glass Placeholder), through which the video projection can be seen
+    - The effect is created using a stencil buffer 
 1. Setting up the WSD. Select the `Front Glass Placeholder`. This is the virtual WSD, which should match your vehicle's WSD as closely as possible. 
-    - Ideally you would replace it with a 3D model of the windshield of your car using the same materials and shaders
-    - Run the scene to line it up with the real world as closely as possible. If you have a full 3D model of your vehicle available, it may be better to do this calibration step in a separate scene and then copy over the transform values afterwards.
-2. Setting up the Camera: Select the `Camera Input` Object (green gizmo) and move it to match the position of the position of the real camera mounted to the windshield as closely as possible. 
+    - Ideally, you would replace it with a 3D model of the windshield of your car using the same materials and shaders
+    - Run the scene to line it up with the real world as closely as possible. If you have a full 3D model of your vehicle available, it may be better to perform this calibration step in a separate scene and then copy the transform values over afterwards.
+2. Setting up the Camera: Select the `Camera Input` Object (green gizmo) and move it to match the position of the real camera mounted to the windshield as closely as possible. 
 3. Adjust the `VideoProjectionSurface`: To accurately project the image back onto a surface, the FOV value needs to match your camera's FOV
-    - Ideally the FOV is high enough to cover the entire WSD.
+    - Ideally, the FOV is high enough to cover the entire WSD.
     - A higher FOV could also cover side windows (requires additional virtual WSDs, see previous step)
     - Adjust the viewing distance if needed (changes the scale of the projection plane)
 4. Testing:
-    - As multiple objects that need accurate placements are involved, getting it to `look right` may recover some trial and error.
-    - If no changes are done to the in-vehicle setup, this only has to be done once. Make sure to document the adjustments you made 
+    - As multiple objects that need accurate placements are involved, getting it to `look right` may require some trial and error.
+    - If no changes are made to the in-vehicle setup, this only has to be done once. Make sure to document the adjustments you made 
 
 ### UI Controls
 - Keyboard: Mouse or Arrow Keys, Enter/Space, ESC
@@ -89,25 +89,25 @@ We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Mo
 
 ## Available Effects
 This section covers which effects are available and how to apply them to objects.
-Generally, all Post-Processing effects can be found in the in the `PostProcessing` directory.
+Generally, all Post-Processing effects are located in the `PostProcessing` directory.
 
 When added to a scene with a `Pipeline` script, the post-processing effect is automatically registered. 
 The `Desktop` scene has all available post-processing effects added under the `PostProcessors` game object.
 
-Generally, each PostProcessor contains a `Class Settings` list which allows to add classes this effect should be applied to. `Class ID` corresponds to the ID of the object type in the `COCO8` dataset. Refer to the `Resources/Models/YOLO/coco_classes.txt` file.
+Generally, each PostProcessor contains a `Class Settings` list, which allows adding classes to which this effect should be applied. `Class ID` corresponds to the ID of the object type in the `COCO8` dataset. Refer to the `Resources/Models/YOLO/coco_classes.txt` file.
 
-The minimum & maximum range where the effect should be applied can be set.
-Depending on the effect, a `color` field may be available. For some effects, this represents an actual color, for others, the color is used to pass other values to a shader. More information below. 
+The minimum & maximum ranges over which the effect should be applied can be set.
+Depending on the effect, a `color` field may be available. For some effects, this represents an actual color; for others, it is used to pass additional values to a shader. More information below. 
 
-__IMPORTANT:__ The color Unity sets by default is (0,0,0,0), meaning fully transparent! This may cause the effect to be invisible. Adjust the value accordingly!
+__IMPORTANT:__ The color Unity sets by default is (0,0,0,0), meaning fully transparent! This may make the effect invisible. Adjust the value accordingly!
 
-If the `Class Settings` list is changed on runtime, the `Update Classes` button has to be pressed.
+If the `Class Settings` list is changed at runtime, the `Update Classes` button has to be pressed.
 ### Augmented Reality
 
 | Effect | Description | Script(s) | Settings | Additional Info |
 | -------- | ------ | ------- | ------- | ------- |
 | Outline | Adds an outline to objects | PostProcessor, OutlineSegmentationShader | Class ID, Range, Color | - |
-| Icon | Adds an Icon to an Object | IconPostProcessor | Class ID, Range, Color, Location (e.g. Top Left, Bottom Right), Offset (in pixels) | - |
+| Icon | Adds an Icon to an Object | IconPostProcessor | Class ID, Range, Color, Location (e.g., Top Left, Bottom Right), Offset (in pixels) | - |
 | InfoText | Displays the object type and distance as text | ObjectInfoPostProcessor | Class ID, Range, Color, Location, Offset | - |
 | Bounding Box | BoundsPostProcessor | Adds a box around the object | Class ID, Range, Color | - |
 
@@ -115,14 +115,14 @@ If the `Class Settings` list is changed on runtime, the `Update Classes` button 
 | Effect | Description | Script(s) | Settings | Additional Info |
 | -------- | ------ | ------- | ------- | ------- |
 | Remove | Removes objects from the scene | MIGANRunner | Class ID, Range | Settings are applied directly to the MI-GAN model |
-| Reduce Opacity | Makes an object transparent | ImagePostProcessor, OpacityMaskSegmentationShader | Class ID, Range, Opacity (Color.alpha) | Rquires Remove effect |
+| Reduce Opacity | Makes an object transparent | ImagePostProcessor, OpacityMaskSegmentationShader | Class ID, Range, Opacity (Color.alpha) | Requires Remove effect |
 | Only Outline | Removes the object only keeping an outline around it | - | Class ID, Range, Color | Remove + Outline effect |
 | Blur | Applies Gaussian Blur | GaussianBlurImagePostProcessor | Class ID, Range, Radius (Color.r), Sigma (Color.g) | Radius (0-30)\*, Sigma (0-16)\*
 | Reduce Scale \*\* | Makes an object smaller | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Scale, Location, Offset | Requires Remove effect. | 
 
 \* Assuming the editor color picker is set to RGBA 0-255
 
-\*\* This effect uses the TransformPostProcessor which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
+\*\* This effect uses the TransformPostProcessor, which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
 ### Modified Reality
 | Effect | Description | Script(s) | Settings | Additional Info |
 | -------- | ------ | ------- | ------- | ------- |
@@ -135,36 +135,36 @@ If the `Class Settings` list is changed on runtime, the `Update Classes` button 
 
 \* Assuming the editor color picker is set to RGBA 0-255
 
-\*\* This effect uses the TransformPostProcessor which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
+\*\* This effect uses the TransformPostProcessor, which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
 ## Creating new Effects
-We utilize both C#-Scripts and Compute Shaders to realize post-processing effects (visualizations). We provide abstract classes and documentation for various use cases:
+We use C# scripts and Compute Shaders to implement post-processing effects (visualizations). We provide abstract classes and documentation for various use cases:
 
 We differentiate between CPU- and GPU-based effects.
 
-We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Settings on the shader side. It takes care of checking whether an object the effect could be applied to is valid or not
+We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Settings on the shader side. It takes care of checking whether the object on which the effect could be applied is valid or not.
 
 ### PostProcessor (GPU)
-- Script that executes a shader which adds something to the image.
+- Script that executes a shader that adds something to the image.
 - Requires the segmentation mask 
 - Refer to the `ColoredMaskSegmentationShader.compute` for a simple example
 
 ### ImagePostProcessor (GPU)
-- Script that executes a shader which manipulates the input image using the segmentation output
+- Script that executes a shader that manipulates the input image using the segmentation output
 - Requires the segmentation mask and input image
 - Used by the `CopySegmentationShader.cs` and `GaussianBlurImagePostProcessor.cs`
 - See the `CopySegmentationShader.compute` shader for a simple example (Note: By default, the effect is applied back to the InputTexture instead of a different Output Texture)
 
 ### CPUPostProcessor (CPU)
-- Abstract class that takes care of creating CPU-based effects that use Unity Prefabs to create an effect, e.g. display a bounding box
+- Abstract class that takes care of creating CPU-based effects that use Unity Prefabs to create an effect, e.g., display a bounding box
 - Takes care of updating classes, initialization, and the updating loop
 - Provides abstract methods that need to be implemented
 - See the `IconPostProcessor.cs` script for a basic implementation
 
 
 ## Adding new models
-We use Unity Inference Engine (formerly Unity Sentis) to execute `ONNX` models in Unity. While we provide abstract `runner` classes to simplify adding new models, we recommend taking a look at the [documentation first](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/manual/index.html).
+We use Unity Inference Engine (formerly Unity Sentis) to execute `ONNX` models in Unity. While we provide abstract `runner` classes to simplify adding new models, we recommend reviewing the [documentation first](https://docs.unity3d.com/Packages/com.unity.ai.inference@2.2/manual/index.html).
 
-Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipeline executes models.
+Refer to the `ModelRunner.cs` script to get a basic understanding of how our pipeline executes models.
 
 ### Exporting to ONNX
 1. Find a model you would like to use and export it to `ONNX`. 
@@ -179,7 +179,7 @@ Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipe
 2. Implement the abstract methods. 
     - Use `YOLORunner`, `MIGANRunner`, or `DepthAnythingRunner` for inspiration
 3. Create a new scene, add the model and a `ModelExecutor` to it
-    - Alternatively duplicate a scene in `Scenes/Models/` and replace the model
+    - Alternatively, duplicate a scene in `Scenes/Models/` and replace the model
     - Take a look at these scenes for inspiration
 4. Set the parameters for your model
 5. Run the model
@@ -187,7 +187,7 @@ Refer to the `ModelRunner.cs`script to get a basic understanding of how our pipe
 
 
 ## Benchmarks
-This section covers benchmark results along with instructions on how to conduct benchmark tests.
+This section covers benchmark results and instructions for conducting benchmark tests.
 
 ### Results
 | Hardware                                                                       | Segmentation ms                     | Inpainting ms                       | Depth Estimation ms                 | Post Processing ms               | Unity FPS                          |
@@ -206,9 +206,9 @@ Further, the Unity FPS solely refers to the updated content; passthrough capabil
 
 ### How to Benchmark
 1. Open one of the existing Benchmark scenes.
-2. These scenes are pre-configured with postprocessing effects that ensure all components of the pipeline are used (models, shaders, cpu effects)
+2. These scenes are pre-configured with postprocessing effects that ensure all components of the pipeline are used (models, shaders, CPU effects)
 3. Assign the models as described in the [Preparing a Scene](#preparing-a-scene) section. 
-4. Adjust the BenchmarkManager Script in the Inspector accordingly. By default, a 60 second benchmark will begin on launch.
+4. Adjust the BenchmarkManager Script in the Inspector accordingly. By default, a 60-second benchmark will begin on launch.
 5. Use the `Benchmark Controller` window via the `MIRAGE` menu item to control the benchmark manually.
 6. The results of the benchmark will be reported in the console.
 7. If enabled, the logging data will also be exported as `.csv` files. They can be found in the `MIRAGE Unity/BenchmarkExports/` directory.
