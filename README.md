@@ -1,5 +1,7 @@
 # MIRAGE: Enabling Real-Time Automotive Mediated Reality
 
+![An illustration comparing reality (left) with an Automotive Mediated Reality (right)](./images/teaser_mirage.png)
+
 Traffic is inherently dangerous, with millions of fatalities every year. Automotive Mediated Reality (AMR) can enhance driving safety by overlaying critical information (e.g., outlines, icons, text) on key objects to improve awareness, altering objects' appearance to simplify traffic situations, and diminishing their appearance to minimize distractions. However, real-world AMR evaluation remains limited due to technical challenges.
 To fill this _sim-to-real_ gap, we present `MIRAGE`, an open-source tool that enables real-time AMR in real vehicles. `MIRAGE` implements 15 effects across the AMR spectrum of augmented, diminished, and modified reality using state-of-the-art computational models for object detection and segmentation, depth estimation, and inpainting.
 In an on-road expert user study (N=9) of `MIRAGE`, participants enjoyed the AMR experience while pointing out technical limitations and identifying use cases for AMR. We discuss these results in the context of related work and outline implications for AMR ethics and interaction design.
