@@ -1,10 +1,13 @@
 # MIRAGE: Enabling Real-Time Automotive Mediated Reality
 
+[![Paper](https://img.shields.io/badge/Paper-ACM%20CHI%2026-blue)](https://doi.org/10.1145/3772318.3791195)
+[![Video](https://img.shields.io/badge/Video-YouTube-red)](#)
+[![arXiv](https://img.shields.io/badge/arXiv-Coming%20Soon-b31b1b)](#)
+
 ![An illustration comparing reality (left) with an Automotive Mediated Reality (right)](./images/teaser_mirage.png)
 
-Traffic is inherently dangerous, with millions of fatalities every year. Automotive Mediated Reality (AMR) can enhance driving safety by overlaying critical information (e.g., outlines, icons, text) on key objects to improve awareness, altering objects' appearance to simplify traffic situations, and diminishing their appearance to minimize distractions. However, real-world AMR evaluation remains limited due to technical challenges.
-To fill this _sim-to-real_ gap, we present `MIRAGE`, an open-source tool that enables real-time AMR in real vehicles. `MIRAGE` implements 15 effects across the AMR spectrum of augmented, diminished, and modified reality using state-of-the-art computational models for object detection and segmentation, depth estimation, and inpainting.
-In an on-road expert user study (N=9) of `MIRAGE`, participants enjoyed the AMR experience while pointing out technical limitations and identifying use cases for AMR. We discuss these results in the context of related work and outline implications for AMR ethics and interaction design.
+Traffic is inherently dangerous, with around 1.19 million fatalities annually. Automotive Mediated Reality (AMR) can enhance driving safety by overlaying critical information (e.g., outlines, icons, text) on key objects to improve awareness, altering objects' appearance to simplify traffic situations, and diminishing their appearance to minimize distractions. However, real-world AMR evaluation remains limited due to technical challenges. To fill this sim-to-real gap, we present `MIRAGE`, an open-source tool that enables real-time AMR in real vehicles. `MIRAGE` implements 15 effects across the AMR spectrum of augmented, diminished, and modified reality using state-of-the-art computational models for object detection and segmentation, depth estimation, and inpainting. In an on-road expert user study (N=9) of `MIRAGE`, participants enjoyed the AMR experience while pointing out technical limitations and identifying use cases for AMR. We discuss these results in relation to prior work and outline implications for AMR ethics and interaction design.
+
 
 ## Authors
 [Pascal Jansen](https://scholar.google.de/citations?user=cR1_0-EAAAAJ&hl=en)* <sup>a b</sup>,
@@ -68,18 +71,18 @@ We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Mo
 6. Changes are saved on the UI toggle.
 
 ### Preparing the VR Scene for In-Vehicle XR Usage
-0. Set up Passthrough for Unity for your XR HMD. This step depends on the XR System you're using. Please refer to the respective documentation.
+1. Set up Passthrough for Unity for your XR HMD. This step depends on the XR System you're using. Please refer to the respective documentation.
     - The scene is generally empty and aside from the UI, only contains a virtual WSD (Front Glass Placeholder), through which the video projection can be seen
     - The effect is created using a stencil buffer 
-1. Setting up the WSD. Select the `Front Glass Placeholder`. This is the virtual WSD, which should match your vehicle's WSD as closely as possible. 
+2. Setting up the WSD. Select the `Front Glass Placeholder`. This is the virtual WSD, which should match your vehicle's WSD as closely as possible. 
     - Ideally, you would replace it with a 3D model of the windshield of your car using the same materials and shaders
     - Run the scene to line it up with the real world as closely as possible. If you have a full 3D model of your vehicle available, it may be better to perform this calibration step in a separate scene and then copy the transform values over afterwards.
-2. Setting up the Camera: Select the `Camera Input` Object (green gizmo) and move it to match the position of the real camera mounted to the windshield as closely as possible. 
-3. Adjust the `VideoProjectionSurface`: To accurately project the image back onto a surface, the FOV value needs to match your camera's FOV
+3. Setting up the Camera: Select the `Camera Input` Object (green gizmo) and move it to match the position of the real camera mounted to the windshield as closely as possible. 
+4. Adjust the `VideoProjectionSurface`: To accurately project the image back onto a surface, the FOV value needs to match your camera's FOV
     - Ideally, the FOV is high enough to cover the entire WSD.
     - A higher FOV could also cover side windows (requires additional virtual WSDs, see previous step)
     - Adjust the viewing distance if needed (changes the scale of the projection plane)
-4. Testing:
+5. Testing:
     - As multiple objects that need accurate placements are involved, getting it to `look right` may require some trial and error.
     - If no changes are made to the in-vehicle setup, this only has to be done once. Make sure to document the adjustments you made 
 
@@ -87,61 +90,68 @@ We use the [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) Inpainting Mo
 - Keyboard: Mouse or Arrow Keys, Enter/Space, ESC
 - Gamepad (XBOX): Left Stick, A Button, B Button
 
-## Available Effects
-This section covers which effects are available and how to apply them to objects.
-Generally, all Post-Processing effects are located in the `PostProcessing` directory.
 
-When added to a scene with a `Pipeline` script, the post-processing effect is automatically registered. 
-The `Desktop` scene has all available post-processing effects added under the `PostProcessors` game object.
 
-Generally, each PostProcessor contains a `Class Settings` list, which allows adding classes to which this effect should be applied. `Class ID` corresponds to the ID of the object type in the `COCO8` dataset. Refer to the `Resources/Models/YOLO/coco_classes.txt` file.
+## Available Effects  
+This section lists the available visual effects and how they can be applied to detected objects. All post-processing effects are located in the `PostProcessing` directory.
 
-The minimum & maximum ranges over which the effect should be applied can be set.
-Depending on the effect, a `color` field may be available. For some effects, this represents an actual color; for others, it is used to pass additional values to a shader. More information below. 
+When added to a scene using a `Pipeline` script, each post-processing effect is registered automatically. The `Desktop` scene already includes all available effects under the `PostProcessors` GameObject.
 
-__IMPORTANT:__ The color Unity sets by default is (0,0,0,0), meaning fully transparent! This may make the effect invisible. Adjust the value accordingly!
+Each PostProcessor contains a `Class Settings` list that defines which object classes the effect applies to. `Class ID` corresponds to the class index in the COCO8 dataset (see `Resources/Models/YOLO/coco_classes.txt`).
 
-If the `Class Settings` list is changed at runtime, the `Update Classes` button has to be pressed.
-### Augmented Reality
+For every effect, minimum and maximum distance ranges can be configured. Some effects expose a `Color` field. Depending on the effect, this represents either a literal color or a packed parameter vector passed to a shader.
 
-| Effect | Description | Script(s) | Settings | Additional Info |
-| -------- | ------ | ------- | ------- | ------- |
-| Outline | Adds an outline to objects | PostProcessor, OutlineSegmentationShader | Class ID, Range, Color | - |
-| Icon | Adds an Icon to an Object | IconPostProcessor | Class ID, Range, Color, Location (e.g., Top Left, Bottom Right), Offset (in pixels) | - |
-| InfoText | Displays the object type and distance as text | ObjectInfoPostProcessor | Class ID, Range, Color, Location, Offset | - |
-| Bounding Box | BoundsPostProcessor | Adds a box around the object | Class ID, Range, Color | - |
+IMPORTANT: Unity initializes colors as (0,0,0,0), which is fully transparent and may make an effect invisible. Adjust this value as needed.
 
-### Diminished Reality
-| Effect | Description | Script(s) | Settings | Additional Info |
-| -------- | ------ | ------- | ------- | ------- |
-| Remove | Removes objects from the scene | MIGANRunner | Class ID, Range | Settings are applied directly to the MI-GAN model |
-| Reduce Opacity | Makes an object transparent | ImagePostProcessor, OpacityMaskSegmentationShader | Class ID, Range, Opacity (Color.alpha) | Requires Remove effect |
-| Only Outline | Removes the object only keeping an outline around it | - | Class ID, Range, Color | Remove + Outline effect |
-| Blur | Applies Gaussian Blur | GaussianBlurImagePostProcessor | Class ID, Range, Radius (Color.r), Sigma (Color.g) | Radius (0-30)\*, Sigma (0-16)\*
-| Reduce Scale \*\* | Makes an object smaller | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Scale, Location, Offset | Requires Remove effect. | 
+If the `Class Settings` list is changed at runtime, press the `Update Classes` button to apply the changes.
 
-\* Assuming the editor color picker is set to RGBA 0-255
+Note: The effect names and parameters listed here use conceptual labels; the corresponding controls and naming in Unity’s DebugUI and Inspector may differ slightly from the paper (name in brackets).
 
-\*\* This effect uses the TransformPostProcessor, which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
-### Modified Reality
-| Effect | Description | Script(s) | Settings | Additional Info |
-| -------- | ------ | ------- | ------- | ------- |
-| Color Mask | Changes the color of an object | PostProcessor, ColoredMaskSegmentationShader | Class ID, Range, Color | - | 
-| Painted | Applies the Kuwahara effect to an object | ImagePostProcessor, KuwaharaSegmentationShader | Class ID, Range, Filter Radius (Color.r), Sectors (Color.g), Strength (Color.b) | Radius (1-5)\*, Sectors (4-16)\*, Strength ((0-1)\*255)\*|
-| Replace | Replaces an object with a 2D sprite | BoundsPostProcessor | Class ID, Color, Range, Location, Offset, Image Prefab | Requires Remove effect. The sprite is set via the Prefab | 
-| Scale\*\* | Increase the size of an object | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Scale | Can be combined with Remove effect |
-| Translate\*\* | Move an object | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Location, Offset | Can be combined with Remove effect |
-| Rotate\*\* | Rotates an object | TransformPostProcessor, ImageCopyPostProcessor | ClassID, Range, Rotation | Can be combined with Remove effect | 
 
-\* Assuming the editor color picker is set to RGBA 0-255
+### Augmented Reality Effects
 
-\*\* This effect uses the TransformPostProcessor, which requires an ImageCopyPostProcessor. The class settings for these need to be identical.
+| Effect Name        | Description                                                                 | Script(s)                                | Settings                                               | Additional Info |
+|--------------------|-----------------------------------------------------------------------------|------------------------------------------|--------------------------------------------------------|------------------|
+| Outline Overlay (Expand)    | Draws a colored outline around detected objects                             | PostProcessor, OutlineSegmentationShader | Class ID, Range, Color                                 | –                |
+| Object Icon        | Renders a 2D icon anchored to the object’s bounding box                     | IconPostProcessor                       | Class ID, Range, Color, Location, Offset               | –                |
+| Info Label (Text)        | Displays object class name and distance as a text label                     | ObjectInfoPostProcessor                 | Class ID, Range, Color, Location, Offset               | –                |
+| Bounding Box       | Draws a rectangular bounding box around the object                          | BoundsPostProcessor                     | Class ID, Range, Color                                 | –                |
+
+
+### Diminished Reality Effects
+
+| Effect Name         | Description                                                                 | Script(s)                                   | Settings                                               | Additional Info |
+|---------------------|-----------------------------------------------------------------------------|---------------------------------------------|--------------------------------------------------------|------------------|
+| Object Removal      | Removes the object visually using inpainting                                | MIGANRunner                                | Class ID, Range                                        | Applied directly to the MI-GAN model |
+| Opacity Reduction (Transparentize)   | Makes the object semi-transparent                                           | ImagePostProcessor, OpacityMaskSegmentationShader | Class ID, Range, Opacity (Color.alpha)                 | Requires Object Removal |
+| Outline Only        | Removes the object interior while keeping an outline                        | –                                           | Class ID, Range, Color                                 | Combines Object Removal + Outline Overlay |
+| Gaussian Blur       | Applies a blur filter over the object region                                | GaussianBlurImagePostProcessor            | Class ID, Range, Radius (Color.r), Sigma (Color.g)     | Radius (0–30)*, Sigma (0–16)* |
+| Scale Down Object** | Reduces the apparent size of the object                                     | TransformPostProcessor, ImageCopyPostProcessor | Class ID, Range, Scale, Location, Offset               | Requires Object Removal |
+
+
+### Modified Reality Effects
+
+| Effect Name        | Description                                                                 | Script(s)                                   | Settings                                               | Additional Info |
+|--------------------|-----------------------------------------------------------------------------|---------------------------------------------|--------------------------------------------------------|------------------|
+| Color Mask         | Recolors the object using a flat color overlay                              | PostProcessor, ColoredMaskSegmentationShader | Class ID, Range, Color                                 | –                |
+| Painterly Filter (Style Transfer)   | Applies a Kuwahara-style painterly filter to the object                     | ImagePostProcessor, KuwaharaSegmentationShader | Class ID, Range, Radius (Color.r), Sectors (Color.g), Strength (Color.b) | Radius (1–5)*, Sectors (4–16)*, Strength (0–255)* |
+| Sprite Replace | Replaces the object with a 2D sprite prefab                                 | BoundsPostProcessor                       | Class ID, Range, Color, Location, Offset, Image Prefab | Requires Object Removal |
+| Scale Up Object**  | Increases the size of the object                                             | TransformPostProcessor, ImageCopyPostProcessor | Class ID, Range, Scale                                 | Can be combined with Object Removal |
+| Translate Object** | Moves the object in screen or world space                                   | TransformPostProcessor, ImageCopyPostProcessor | Class ID, Range, Location, Offset                      | Can be combined with Object Removal |
+| Rotate Object**    | Rotates the object around its center                                        | TransformPostProcessor, ImageCopyPostProcessor | Class ID, Range, Rotation                              | Can be combined with Object Removal |
+
+---
+
+* Assumes the Unity color picker is set to RGBA (0–255)  
+** Requires `TransformPostProcessor` and `ImageCopyPostProcessor` with identical class settings
+
+
 ## Creating new Effects
 We use C# scripts and Compute Shaders to implement post-processing effects (visualizations). We provide abstract classes and documentation for various use cases:
 
 We differentiate between CPU- and GPU-based effects.
 
-We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Settings on the shader side. It takes care of checking whether the object on which the effect could be applied is valid or not.
+We provide `SegmentationCommon.hlsl`, a shader file that manages the Class Settings on the shader side. It checks whether the object on which the effect could be applied is valid.
 
 ### PostProcessor (GPU)
 - Script that executes a shader that adds something to the image.
@@ -187,7 +197,7 @@ Refer to the `ModelRunner.cs` script to get a basic understanding of how our pip
 
 
 ## Benchmarks
-This section covers benchmark results and instructions for conducting benchmark tests.
+This section covers benchmark results and instructions for conducting benchmark tests. The data is located in the 'Benchmarks' folder.
 
 ### Results
 | Hardware                                                                       | Segmentation ms                     | Inpainting ms                       | Depth Estimation ms                 | Post Processing ms               | Unity FPS                          |
@@ -214,8 +224,14 @@ Further, the Unity FPS solely refers to the updated content; passthrough capabil
 7. If enabled, the logging data will also be exported as `.csv` files. They can be found in the `MIRAGE Unity/BenchmarkExports/` directory.
 8. The `BenchmarkAutomation` can be used to automate the Benchmark process.
 
+
+## Expert User Study
+The data from the expert user study and the evaluation script are located in the 'ExpertSurvey' folder.
+
+Participants' verbal feedback was automatically transcribed using [OpenAI Whisper](https://github.com/openai/whisper).
+
 ## Statistical Analysis
-The statistical analyses (benchmark and expert study) was lastly tested with the following setup:
+The statistical analyses (benchmark and expert user study) were tested with the following setup:
 
 1. RStudio 2026.01.0
 2. R version 4.5.2
@@ -225,12 +241,12 @@ The statistical analyses (benchmark and expert study) was lastly tested with the
 
 If you use this work, please cite it as:
 
-Pascal Jansen, Julian Britten, Mark Colley, Markus Sasalovici, and Enrico Rukzio. 2026. **MIRAGE: Enabling Real-Time Automotive Reality.** In *Proceedings of the 2026 CHI Conference on Human Factors in Computing Systems (CHI ’26)*, April 13–17, 2026, Barcelona, Spain. ACM. DOI: 10.1145/3772318.3791195
+Pascal Jansen, Julian Britten, Mark Colley, Markus Sasalovici, and Enrico Rukzio. 2026. **MIRAGE: Enabling Real-Time Automotive Mediated Reality.** In *Proceedings of the 2026 CHI Conference on Human Factors in Computing Systems (CHI ’26)*, April 13–17, 2026, Barcelona, Spain. ACM. DOI: 10.1145/3772318.3791195
 
 ```
 @inproceedings{jansen2026mirage,
   author    = {Jansen, Pascal and Britten, Julian and Colley, Mark and Sasalovici, Markus and Rukzio, Enrico},
-  title     = {MIRAGE: Enabling Real-Time Automotive Reality},
+  title     = {MIRAGE: Enabling Real-Time Automotive Mediated Reality},
   booktitle = {Proceedings of the 2026 CHI Conference on Human Factors in Computing Systems (CHI '26)},
   year      = {2026},
   month     = apr,
