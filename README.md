@@ -2,7 +2,7 @@
 
 [![Paper](https://img.shields.io/badge/Paper-ACM%20CHI%2026-blue)](https://doi.org/10.1145/3772318.3791195)
 [![Video](https://img.shields.io/badge/Video-YouTube-red)](https://youtu.be/MMBduUx9ZG4)
-[![arXiv](https://img.shields.io/badge/arXiv-Coming%20Soon-b31b1b)](#)
+[![arXiv](https://img.shields.io/badge/arXiv-Coming%20Soon-b31b1b)](https://arxiv.org/pdf/2601.19385)
 
 ![An illustration comparing reality (left) with an Automotive Mediated Reality (right)](./images/teaser_mirage.png)
 
